@@ -147,9 +147,24 @@ body{-webkit-text-size-adjust:100%;overscroll-behavior-y:contain}
 <div class="drop" id="drop">
   <p>公式サイトの「スコアデータCSVダウンロード」で落としたCSVを、ここにドラッグするか選んでください。<br>データはブラウザ内だけで処理され、どこにも送信されません。</p>
   <label class="btn" for="f">CSVを選ぶ</label>
-  <input type="file" id="f" accept=".csv,text/csv">
+  <button class="ghost" id="topaste" type="button">テキストを貼り付ける</button>
+  <input type="file" id="f" accept=".csv,text/csv,text/plain">
   <div class="err" id="err"></div>
   <div class="saved" id="saved"></div>
+
+  <div id="pastebox" class="hide" style="margin-top:16px;text-align:left">
+    <p style="margin:0 0 8px;color:var(--dim);font-size:12px">
+      スマホなど、CSVをダウンロードできない環境向けです。公式サイトのスコア一覧を
+      見出しの行から全部選択してコピーし、ここに貼り付けてください。
+    </p>
+    <textarea id="pastearea" rows="7" placeholder="ここに長押し→ペースト"
+      style="width:100%;background:#0d1120;color:var(--ink);border:1px solid var(--line);
+             border-radius:6px;padding:10px;font-size:13px;font-family:inherit;resize:vertical"></textarea>
+    <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
+      <button id="doPaste" type="button">読み込む</button>
+      <button class="ghost" id="cancelPaste" type="button">閉じる</button>
+    </div>
+  </div>
 </div>
 
 <div id="app" class="hide">
@@ -160,6 +175,7 @@ body{-webkit-text-size-adjust:100%;overscroll-behavior-y:contain}
 
   <div class="bar-actions">
     <label class="btn" for="f2">別のCSVを読み込む</label>
+    <button class="ghost" id="topaste2" type="button">テキストで貼り替える</button>
     <input type="file" id="f2" accept=".csv,text/csv">
     <button class="ghost" id="clear">保存データを削除</button>
     <span class="saved" id="loadedat" style="align-self:center"></span>
@@ -234,7 +250,7 @@ function keyOf(title){
   return [norm(t), d];
 }
 
-function parseCSV(text){
+function parseDelim(text, delim){
   const rows=[]; let row=[], cur="", q=false;
   for(let i=0;i<text.length;i++){
     const c=text[i];
@@ -243,7 +259,7 @@ function parseCSV(text){
       else cur+=c;
     } else {
       if(c==='"') q=true;
-      else if(c===","){ row.push(cur); cur=""; }
+      else if(c===delim){ row.push(cur); cur=""; }
       else if(c==="\n"){ row.push(cur); rows.push(row); row=[]; cur=""; }
       else if(c!=="\r") cur+=c;
     }
@@ -252,12 +268,38 @@ function parseCSV(text){
   return rows;
 }
 
+// 区切り文字を推定する：ヘッダー行に「タイトル」等が現れ、列数が安定するものを選ぶ
+function parseAuto(text){
+  const cands=[",","\t",";"];
+  let best=null;
+  for(const d of cands){
+    const rows=parseDelim(text,d).filter(r=>r.length>1||r[0]!=="");
+    if(rows.length<2) continue;
+    const w=rows[0].length;
+    if(w<4) continue;
+    // 列数が揃っている行の割合
+    const ok=rows.filter(r=>r.length===w).length/rows.length;
+    const score=w*ok;
+    if(!best||score>best.score) best={rows,score,delim:d,width:w};
+  }
+  if(best) return best.rows;
+  // タブもカンマも無い場合：連続スペース区切りとみなす
+  const rows=text.split(/\r?\n/).filter(l=>l.trim()!=="")
+                 .map(l=>l.split(/[ \u3000]{2,}|\t/));
+  return rows;
+}
+
+const parseCSV = parseAuto;
+
 function load(text){
   const rows=parseCSV(text.replace(/^\uFEFF/,""));
   if(!rows.length) throw new Error("空のファイルです");
   const head=rows[0].map(s=>s.trim());
   const ti=head.indexOf("タイトル");
-  if(ti<0) throw new Error("「タイトル」列が見つかりません。SPのスコアCSVか確認してください。");
+  if(ti<0){
+    const peek=head.slice(0,6).join(" / ").slice(0,120);
+    throw new Error("「タイトル」の見出しが見つかりませんでした。1行目に見出しが含まれているか確認してください。（読み取った1行目: "+(peek||"空")+"）");
+  }
   const defs=[["HYPER","H"],["ANOTHER","A"],["LEGGENDARIA","L"]];
   const idx={};
   defs.forEach(([d,k])=>{
@@ -411,7 +453,26 @@ function pick(e){
   e.target.value="";
 }
 document.getElementById("f").addEventListener("change",pick);
+
+const pasteBox=document.getElementById("pastebox");
+document.getElementById("topaste").addEventListener("click",()=>{
+  pasteBox.classList.toggle("hide");
+  if(!pasteBox.classList.contains("hide")) document.getElementById("pastearea").focus();
+});
+document.getElementById("cancelPaste").addEventListener("click",()=>pasteBox.classList.add("hide"));
+document.getElementById("doPaste").addEventListener("click",()=>{
+  const t=document.getElementById("pastearea").value;
+  if(!t.trim()){ document.getElementById("err").textContent="貼り付けが空です。"; return; }
+  start(t);
+});
 document.getElementById("f2").addEventListener("change",pick);
+document.getElementById("topaste2").addEventListener("click",()=>{
+  document.getElementById("app").classList.add("hide");
+  document.getElementById("drop").classList.remove("hide");
+  pasteBox.classList.remove("hide");
+  document.getElementById("pastearea").value="";
+  document.getElementById("pastearea").focus();
+});
 document.getElementById("clear").addEventListener("click",()=>{
   localStorage.removeItem(KEY); localStorage.removeItem(KEYT);
   location.reload();
