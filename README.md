@@ -6,7 +6,7 @@ beatmania IIDX SP のスコアCSVを、非公式の地力難易度表（☆11 / 
 
 **個人が趣味で作った非公式ツールです。KONAMI およびその関連会社とは一切関係ありません。**
 
-👉 https://ooool727.github.io/beatmaniaIIDX-11-12-grid/
+👉 https://oool727.github.io/beatmaniaIIDX-11-12-grid/
 
 ---
 
