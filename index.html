@@ -161,6 +161,9 @@ select{background:#0d1120;color:var(--ink);border:1px solid var(--line);
 .distrow .ct{width:74px;text-align:right;font-variant-numeric:tabular-nums;flex:none}
 
 .mark{background:rgba(63,208,255,.28);border-radius:2px}
+.morerow{margin:10px 0 0;text-align:center}
+.morerow button{width:100%;padding:11px;font-size:12px;letter-spacing:.06em}
+.morerow .cnt{color:var(--dim);font-size:11px}
 .tag-late{color:var(--failed);font-weight:600}
 .tag-early{color:var(--easy);font-weight:600}
 
@@ -281,9 +284,11 @@ body{-webkit-text-size-adjust:100%;overscroll-behavior-y:contain}
 
   <h3 class="sect">未プレーのおすすめ（易しい帯から）</h3>
   <div class="tblwrap"><table><thead><tr><th></th><th>曲名</th><th>帯</th><th>傾向</th></tr></thead><tbody id="reco"></tbody></table></div>
+  <div class="morerow" id="recomore"></div>
 
   <h3 class="sect">次に狙う譜面（未達成・BP少ない順）</h3>
   <div class="tblwrap"><table><thead><tr><th></th><th>曲名</th><th>帯</th><th>傾向</th><th style="text-align:right">BP</th></tr></thead><tbody id="next"></tbody></table></div>
+  <div class="morerow" id="nextmore"></div>
 </div>
 
 <footer>
@@ -312,6 +317,8 @@ const TIERS = {
 
 let SCORE = {}, LV = "12", MODE = "normal";
 let OPEN = new Set();
+let LIMIT_NX = 25;   // 「次に狙う譜面」の表示件数
+let LIMIT_RC = 25;   // 「未プレーのおすすめ」の表示件数
 let PREV = null;              // 前回読み込み時のスナップショット
 let DIFFTEXT = null;          // 差分の表示内容
 const KEYS = "lampgrid.snap"; // スナップショット保存キー
@@ -375,6 +382,19 @@ function tendHtml(tend){
     if(EARLY_HARD.includes(t)) return `<span class="tag-early">${esc(t)}</span>`;
     return esc(t);
   }).join("・");
+}
+
+// 「もっと見る」ボタン。全件出たら消える。
+function drawMore(id, total, limit, setLimit){
+  const el=document.getElementById(id);
+  if(total<=limit){
+    el.innerHTML = total>25
+      ? `<span class="cnt">全 ${total} 件を表示中</span>` : "";
+    return;
+  }
+  const rest=total-limit, add=Math.min(25,rest);
+  el.innerHTML=`<button type="button">もっと見る（あと ${rest} 件）</button>`;
+  el.querySelector("button").onclick=()=>setLimit(limit+add);
 }
 
 function esc(v){
@@ -482,6 +502,8 @@ function rowsFor(lv){
             rank:sc?sc.rank:0, lamp:sc?sc.lamp:"NO PLAY", bp:sc?sc.bp:null};
   });
 }
+
+function resetLimit(){ LIMIT_NX=25; LIMIT_RC=25; }
 
 function render(){
   const thr=parseInt(document.getElementById("thr").value,10);
@@ -630,18 +652,20 @@ function render(){
 
   // --- 未プレーのおすすめ（易しい帯から） ---
   const order={}; TIER_ORDER.forEach((t,i)=>order[t]=i);
-  const rec=data.filter(r=>r.rank===0)
-    .sort((a,b)=>(order[a.tier]??99)-(order[b.tier]??99) || a.title.localeCompare(b.title,"ja"))
-    .slice(0,25);
+  const recAll=data.filter(r=>r.rank===0)
+    .sort((a,b)=>(order[a.tier]??99)-(order[b.tier]??99) || a.title.localeCompare(b.title,"ja"));
+  const rec=recAll.slice(0,LIMIT_RC);
+  drawMore("recomore", recAll.length, LIMIT_RC, n=>{ LIMIT_RC=n; render(); });
   document.getElementById("reco").innerHTML = rec.length
     ? rec.map(r=>`<tr><td class="lampcell"><i class="L0"></i></td>
         <td>${hl(r.title,q)}</td><td>${esc(r.tier)}</td><td>${esc(r.tend)}</td></tr>`).join("")
     : `<tr><td colspan="4" style="color:var(--dim)">未プレーの譜面はありません。</td></tr>`;
 
   // 次に狙う譜面
-  const nx=data.filter(r=>r.rank<thr && r.bp!==null)
-    .sort((a,b)=>bpWeight(a,thr)-bpWeight(b,thr) || a.bp-b.bp)
-    .slice(0,25);
+  const nxAll=data.filter(r=>r.rank<thr && r.bp!==null)
+    .sort((a,b)=>bpWeight(a,thr)-bpWeight(b,thr) || a.bp-b.bp);
+  const nx=nxAll.slice(0,LIMIT_NX);
+  drawMore("nextmore", nxAll.length, LIMIT_NX, n=>{ LIMIT_NX=n; render(); });
   document.getElementById("next").innerHTML = nx.length
     ? nx.map(r=>`<tr><td class="lampcell"><i class="L${r.rank}"></i></td><td>${hl(r.title,q)}</td><td>${esc(r.tier)}</td><td>${thr<5?tendHtml(r.tend):esc(r.tend)}</td><td style="text-align:right">${r.bp}</td></tr>`).join("")
     : `<tr><td colspan="5" style="color:var(--dim)">BPが記録された未達成譜面はありません。</td></tr>`;
@@ -753,26 +777,26 @@ drop.addEventListener("drop",e=>{
 });
 document.querySelectorAll(".tab[data-lv]").forEach(t=>t.addEventListener("click",()=>{
   document.querySelectorAll(".tab[data-lv]").forEach(x=>x.classList.remove("act"));
-  t.classList.add("act"); LV=t.dataset.lv; saveOpt(); render();
+  t.classList.add("act"); LV=t.dataset.lv; resetLimit(); saveOpt(); render();
 }));
 document.querySelectorAll(".tab[data-mode]").forEach(t=>t.addEventListener("click",()=>{
   document.querySelectorAll(".tab[data-mode]").forEach(x=>x.classList.remove("act"));
-  t.classList.add("act"); MODE=t.dataset.mode;
+  t.classList.add("act"); MODE=t.dataset.mode; resetLimit();
   // 表を切り替えたら判定基準も既定値に寄せる
   document.getElementById("thr").value = (MODE==="hard") ? "5" : "2";
   saveOpt(); render();
 }));
-["names","onlyun","thr","tendf"].forEach(id=>document.getElementById(id).addEventListener("change",()=>{saveOpt();render();}));
+["names","onlyun","thr","tendf"].forEach(id=>document.getElementById(id).addEventListener("change",()=>{resetLimit();saveOpt();render();}));
 
 // 検索（入力のたびに再描画。件数が多くないので debounce は軽めに）
 let qtimer=null;
 document.getElementById("q").addEventListener("input",()=>{
-  clearTimeout(qtimer); qtimer=setTimeout(render,120);
+  clearTimeout(qtimer); qtimer=setTimeout(()=>{resetLimit();render();},120);
 });
 document.getElementById("qclear").addEventListener("click",()=>{
   document.getElementById("q").value="";
   document.getElementById("tendf").value="";
-  render();
+  resetLimit(); render();
 });
 
 // 起動時：保存済みCSVがあれば自動で復元
