@@ -162,7 +162,7 @@ body{-webkit-text-size-adjust:100%;overscroll-behavior-y:contain}
 <div class="wrap">
 <header>
   <h1>LAMP GRID</h1>
-  <div class="sub">beatmania IIDX SP ☆11 / ☆12 地力表（ノマゲ・ハード）× スコアデータ</div>
+  <div class="sub">beatmania IIDX SP ☆11 / ☆12 地力表（NORMAL・HARD）× スコアデータ</div>
 </header>
 
 <div class="drop" id="drop">
@@ -193,8 +193,8 @@ body{-webkit-text-size-adjust:100%;overscroll-behavior-y:contain}
     <div class="tab act" data-lv="12">☆12</div>
     <div class="tab" data-lv="11">☆11</div>
     <span style="flex-basis:100%;height:0"></span>
-    <div class="tab mode act" data-mode="normal">ノマゲ表</div>
-    <div class="tab mode" data-mode="hard">ハード表</div>
+    <div class="tab mode act" data-mode="normal">NORMAL表</div>
+    <div class="tab mode" data-mode="hard">HARD表</div>
   </div>
 
   <div class="bar-actions">
@@ -211,7 +211,7 @@ body{-webkit-text-size-adjust:100%;overscroll-behavior-y:contain}
     <span><i class="sw L7"></i>FULLCOMBO</span>
     <span><i class="sw L6"></i>EX-HARD</span>
     <span><i class="sw L5"></i>HARD</span>
-    <span><i class="sw L4"></i>ノマゲ</span>
+    <span><i class="sw L4"></i>NORMAL</span>
     <span><i class="sw L3"></i>EASY</span>
     <span><i class="sw L2"></i>A-EASY</span>
     <span><i class="sw L1"></i>FAILED</span>
@@ -225,7 +225,7 @@ body{-webkit-text-size-adjust:100%;overscroll-behavior-y:contain}
       <select id="thr">
         <option value="2">A-EASY以上</option>
         <option value="3">EASY以上</option>
-        <option value="4">ノマゲ以上</option>
+        <option value="4">NORMAL以上</option>
         <option value="5">HARD以上</option>
       </select>
     </label>
@@ -239,7 +239,7 @@ body{-webkit-text-size-adjust:100%;overscroll-behavior-y:contain}
 
 <footer>
   <p style="margin:0 0 6px">
-    難易度表データ：<a href="https://w.atwiki.jp/bemani2dx_sp11/" target="_blank" rel="noopener">beatmania IIDX SP☆11 難易度表保管所(仮)</a>（☆11/☆12 ノマゲ表・ハード表、2025-02-22版）より。
+    難易度表データ：<a href="https://w.atwiki.jp/bemani2dx_sp11/" target="_blank" rel="noopener">beatmania IIDX SP☆11 難易度表保管所(仮)</a>（☆11/☆12 NORMAL表・HARD表、2025-02-22版）より。
     表の内容に関するご意見は出典元へお願いします。
   </p>
   <p style="margin:0 0 6px">
@@ -266,7 +266,7 @@ let OPEN = new Set();
 
 const LAMPJA = {
   "FULLCOMBO CLEAR":"FULLCOMBO", "EX HARD CLEAR":"EX-HARD", "HARD CLEAR":"HARD",
-  "CLEAR":"ノマゲ", "EASY CLEAR":"EASY", "ASSIST CLEAR":"A-EASY",
+  "CLEAR":"NORMAL", "EASY CLEAR":"EASY", "ASSIST CLEAR":"A-EASY",
   "FAILED":"FAILED", "NO PLAY":"未プレー"
 };
 
