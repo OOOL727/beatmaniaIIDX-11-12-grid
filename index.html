@@ -589,14 +589,17 @@ function render(){
   // --- ランプ分布 ---
   const LABEL=[["未プレー",0],["FAILED",1],["A-EASY",2],["EASY",3],
                ["NORMAL",4],["HARD",5],["EX-HARD",6],["FULLCOMBO",7]];
-  const maxc=Math.max(...LABEL.map(([,i])=>cnt[i]),1);
+  // 全体数を100%としたスケール（バー右端＝全譜面数）
+  // 未プレーは本来ほぼ黒で背景に溶けるため、グラフ内だけ視認できる灰色を使う
+  const DISTCOL=["#4a5570","--failed","--aeasy","--easy","--clear","--hard","--exh","--fc"];
+  const cs=getComputedStyle(document.documentElement);
   document.getElementById("dist").innerHTML = LABEL.slice().reverse().map(([nm,i])=>{
-    const c=cnt[i], pc=(c/all.length*100).toFixed(1);
-    const col=getComputedStyle(document.documentElement)
-      .getPropertyValue(["--noplay","--failed","--aeasy","--easy","--clear","--hard","--exh","--fc"][i]);
+    const c=cnt[i], pc=(c/all.length*100);
+    const v=DISTCOL[i];
+    const col = v.startsWith("--") ? cs.getPropertyValue(v) : v;
     return `<div class="distrow"><span class="nm">${nm}</span>
-      <span class="track"><i style="width:${c/maxc*100}%;background:${col}"></i></span>
-      <span class="ct">${c} / ${pc}%</span></div>`;
+      <span class="track"><i style="width:${pc}%;background:${col}"></i></span>
+      <span class="ct">${c} / ${pc.toFixed(1)}%</span></div>`;
   }).join("");
 
   // --- 未プレーのおすすめ（易しい帯から） ---
