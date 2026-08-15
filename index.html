@@ -587,7 +587,27 @@ document.querySelectorAll(".tab[data-mode]").forEach(t=>t.addEventListener("clic
     document.getElementById("saved").textContent = at ? "" : "";
   }
   if("serviceWorker" in navigator){
-    window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));
+    // 新しい版に入れ替わったら一度だけ自動リロード
+    // 初回インストール時は controller が無い状態から付くだけなのでリロードしない
+    const hadController = !!navigator.serviceWorker.controller;
+    let reloading=false;
+    navigator.serviceWorker.addEventListener("controllerchange",()=>{
+      if(!hadController || reloading) return;
+      reloading=true;
+      location.reload();
+    });
+
+    window.addEventListener("load",()=>{
+      // updateViaCache:"none" で sw.js 自体がHTTPキャッシュされるのを防ぐ
+      navigator.serviceWorker.register("sw.js",{updateViaCache:"none"}).then(reg=>{
+        // 起動時・タブに戻ったときに更新を確認
+        const check=()=>{ reg.update().catch(()=>{}); };
+        check();
+        document.addEventListener("visibilitychange",()=>{
+          if(document.visibilityState==="visible") check();
+        });
+      }).catch(()=>{});
+    });
   }
 })();
 </script>
