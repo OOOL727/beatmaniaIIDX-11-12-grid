@@ -12,9 +12,9 @@
 <title>LAMP GRID — SP☆11/☆12 地力表ビューア</title>
 <style>
 :root{
-  --bg:#0a0c14; --panel:#121624; --line:#242a3d; --ink:#e8ecf7; --dim:#7b85a3;
+  --bg:#111827; --panel:#1b2538; --line:#3a4964; --ink:#f5f7ff; --dim:#a9b8d6;
   --fc:#ff5ec4; --exh:#ffc12e; --hard:#f2f5ff; --clear:#3fd0ff;
-  --easy:#43e07d; --aeasy:#a86bff; --failed:#ff4d5e; --noplay:#1b2032;
+  --easy:#43e07d; --aeasy:#a86bff; --failed:#ff5f70; --noplay:#2a354b;
 }
 *{box-sizing:border-box}
 html,body{margin:0;padding:0}
@@ -37,7 +37,7 @@ h1{
   border:1px dashed var(--line);border-radius:10px;background:var(--panel);
   padding:22px;text-align:center;margin-bottom:22px;transition:.15s;
 }
-.drop.on{border-color:var(--clear);background:#141c30}
+.drop.on{border-color:var(--clear);background:#22324d}
 .drop p{margin:0 0 12px;color:var(--dim);font-size:13px}
 button,label.btn{
   background:#1d2438;border:1px solid var(--line);color:var(--ink);
@@ -81,14 +81,14 @@ input[type=file]{position:absolute;width:1px;height:1px;opacity:0}
 .tier{margin-bottom:22px}
 .tierhead{display:flex;align-items:baseline;gap:12px;margin-bottom:8px;flex-wrap:wrap;
   cursor:pointer;user-select:none;padding:4px 6px;margin-left:-6px;border-radius:6px}
-.tierhead:hover{background:#161b2b}
+.tierhead:hover{background:#25324a}
 .tierhead:focus-visible{outline:2px solid var(--clear);outline-offset:2px}
 .caret{color:var(--dim);font-size:11px;transition:transform .15s;display:inline-block}
 .tier.open .caret{transform:rotate(90deg)}
 .detail{display:none;margin:10px 0 4px;border:1px solid var(--line);border-radius:8px;overflow:hidden}
 .tier.open .detail{display:block}
 .detail table{width:100%;border-collapse:collapse;font-size:12px}
-.detail th{background:#161b2b;position:sticky;top:0}
+.detail th{background:#25324a;position:sticky;top:0}
 .detail td,.detail th{padding:7px 10px;border-bottom:1px solid var(--line);text-align:left}
 .detail tr:last-child td{border-bottom:0}
 .detail td.lampcell{width:6px;padding:0}
@@ -103,7 +103,7 @@ input[type=file]{position:absolute;width:1px;height:1px;opacity:0}
 }
 .tiername{font-size:15px;font-weight:800;letter-spacing:.1em}
 .tiernum{font-size:11px;color:var(--dim);font-variant-numeric:tabular-nums}
-.bar{height:5px;background:#1a1f31;border-radius:3px;overflow:hidden;flex:1;min-width:120px}
+.bar{height:5px;background:#2a354b;border-radius:3px;overflow:hidden;flex:1;min-width:120px}
 .bar i{display:block;height:100%;background:linear-gradient(90deg,var(--aeasy),var(--clear))}
 
 .grid{display:flex;flex-wrap:wrap;gap:4px}
@@ -112,15 +112,57 @@ input[type=file]{position:absolute;width:1px;height:1px;opacity:0}
   border:1px solid rgba(255,255,255,.05);cursor:default;position:relative;
 }
 .cell.wide{width:auto;height:auto;padding:5px 9px;font-size:11px;border-radius:4px;color:#06121c}
-.L7{background:var(--fc);box-shadow:0 0 7px var(--fc)}
-.L6{background:var(--exh)}
-.L5{background:var(--hard)}
+.L7{
+  background:#c9efff !important;
+  background-image:linear-gradient(
+    135deg,
+    #ffffff 0%,
+    #bdefff 18%,
+    #70d8ff 34%,
+    #fff0a8 51%,
+    #ffd45f 65%,
+    #d8bfff 82%,
+    #ffb9dc 100%
+  ) !important;
+  background-size:100% 100% !important;
+  background-position:center !important;
+  box-shadow:none !important;
+  animation:none !important;
+  filter:none !important;
+}
+
+/* EX-HARD：固定の赤金グラデーション */
+.L6{
+  background:#f5b914 !important;
+  background-image:linear-gradient(
+    135deg,
+    #ffcf22 0%,
+    #f5b914 55%,
+    #e85a3f 100%
+  ) !important;
+  background-size:100% 100% !important;
+  background-position:center !important;
+  box-shadow:none !important;
+  animation:none !important;
+  filter:none !important;
+}
+
+/* HARD：白固定 */
+.L5{
+  background:#ffffff !important;
+  background-image:none !important;
+  box-shadow:none !important;
+  animation:none !important;
+  filter:none !important;
+}
+
 .L4{background:var(--clear)}
 .L3{background:var(--easy)}
 .L2{background:var(--aeasy)}
 .L1{background:var(--failed)}
 .L0{background:var(--noplay)}
 .L1.wide,.L2.wide,.L7.wide{color:#fff}
+.L5.wide,.L6.wide{color:#111827}
 
 .opt{display:flex;gap:16px;align-items:center;margin-bottom:16px;font-size:12px;color:var(--dim);flex-wrap:wrap}
 .opt label{cursor:pointer;display:flex;align-items:center;gap:5px}
@@ -139,11 +181,11 @@ footer a:hover{color:var(--clear)}
 h3.sect{margin:34px 0 10px;font-size:13px;letter-spacing:.14em;color:var(--dim);font-weight:400}
 
 .searchrow{display:flex;gap:8px;align-items:center;margin-bottom:18px;flex-wrap:wrap}
-#q{flex:1;min-width:180px;background:#0d1120;color:var(--ink);border:1px solid var(--line);
+#q{flex:1;min-width:180px;background:#162035;color:var(--ink);border:1px solid var(--line);
    border-radius:6px;padding:9px 12px;font-size:13px;font-family:inherit}
 #q:focus{outline:none;border-color:var(--clear)}
 .hitnum{font-size:11px;color:var(--dim);font-variant-numeric:tabular-nums}
-select{background:#0d1120;color:var(--ink);border:1px solid var(--line);
+select{background:#162035;color:var(--ink);border:1px solid var(--line);
        border-radius:6px;padding:5px 8px;font-size:12px;font-family:inherit}
 
 .diffbox{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--easy);
@@ -156,7 +198,7 @@ select{background:#0d1120;color:var(--ink);border:1px solid var(--line);
 
 .distrow{display:flex;align-items:center;gap:10px;margin-bottom:6px;font-size:12px}
 .distrow .nm{width:88px;color:var(--dim);flex:none}
-.distrow .track{flex:1;height:14px;background:#151a29;border-radius:4px;overflow:hidden}
+.distrow .track{flex:1;height:14px;background:#26334a;border-radius:4px;overflow:hidden}
 .distrow .track i{display:block;height:100%}
 .distrow .ct{width:74px;text-align:right;font-variant-numeric:tabular-nums;flex:none}
 
@@ -193,6 +235,70 @@ body{-webkit-text-size-adjust:100%;overscroll-behavior-y:contain}
   th,td{padding:8px 8px;font-size:12px}
   .legend{gap:10px 12px}
 }
+
+/* ===== 絞り込み・表示設定：視認性改善 ===== */
+.control-panel{background:#202b40;border:1px solid #41516d;border-radius:12px;padding:18px 20px;margin-bottom:24px;box-shadow:0 8px 24px rgba(0,0,0,.12)}
+.control-title{margin:0 0 16px;font-size:13px;font-weight:800;letter-spacing:.12em;color:#9fc2ff}
+.search-block{margin-bottom:18px}
+.search-label,.control-label{display:block;margin-bottom:7px;color:#b7c9e8;font-size:12px;letter-spacing:.05em;font-weight:600}
+.search-input-row{display:flex;gap:10px;align-items:center}
+.search-input-row #q{flex:1;min-width:180px;background:#111a2d;color:var(--ink);border:1px solid #485a78;border-radius:7px;padding:10px 12px;font-size:13px;font-family:inherit}
+.search-input-row #q:focus{outline:none;border-color:var(--clear);box-shadow:0 0 0 2px rgba(63,208,255,.12)}
+.search-result{margin-top:6px;min-height:16px}
+.control-grid{display:grid;grid-template-columns:repeat(2,minmax(180px,1fr));gap:14px 18px}
+.control-field{display:flex;flex-direction:column;gap:0}
+.control-field select{width:100%;background:#111a2d;border-color:#485a78;padding:10px 12px;font-size:13px}
+.control-checks{display:flex;flex-wrap:wrap;gap:12px 24px;margin-top:18px;padding-top:16px;border-top:1px solid #41516d}
+.check-item{display:flex;align-items:flex-start;gap:9px;cursor:pointer;color:#f5f7ff;font-size:13px;padding:7px 9px;border-radius:7px;transition:.15s}
+.check-item:hover{background:#293750}
+.check-item input{margin-top:3px;accent-color:#3fd0ff;width:16px;height:16px}
+.check-text{display:flex;flex-direction:column}
+.check-help{color:#9fb0cf;font-size:11px;margin-top:3px}
+@media(max-width:600px){.control-panel{padding:15px}.control-grid{grid-template-columns:1fr;gap:12px}.control-checks{flex-direction:column;gap:6px}.search-input-row{align-items:stretch}.search-input-row #q{min-width:0}.search-input-row .ghost{flex:none}}
+
+
+
+/* チェック項目をパネル上部へ */
+.control-checks-top{
+  margin-top:0;
+  margin-bottom:18px;
+  padding-top:0;
+  padding-bottom:16px;
+  border-top:0;
+  border-bottom:1px solid #41516d;
+}
+
+/* ===== クリア目標・譜面傾向：カスタムドロップダウン ===== */
+.custom-field{position:relative}
+#thr,#tendf{display:none}
+.custom-select{position:relative;width:100%}
+.custom-select-button{
+  width:100%;min-height:42px;display:flex;align-items:center;justify-content:space-between;
+  gap:12px;text-align:left;background:#111a2d;color:var(--ink);border:1px solid #485a78;
+  border-radius:7px;padding:10px 12px;font-size:13px;font-family:inherit;letter-spacing:0;
+}
+.custom-select-button:hover{border-color:var(--clear);color:var(--ink)}
+.custom-select-button:focus-visible{outline:2px solid var(--clear);outline-offset:2px}
+.custom-select-arrow{color:#b7c9e8;font-size:11px;transition:transform .15s;flex:none}
+.custom-select.open .custom-select-arrow{transform:rotate(180deg)}
+.custom-select-menu{
+  display:none;position:absolute;left:0;right:0;top:calc(100% + 5px);z-index:1000;
+  max-height:300px;overflow-y:auto;overscroll-behavior:contain;
+  background:#111a2d;border:1px solid #5a6d8d;border-radius:7px;
+  box-shadow:0 14px 32px rgba(0,0,0,.32);padding:5px;
+}
+.custom-select.open .custom-select-menu{display:block}
+.custom-select-option{
+  display:block;width:100%;border:0;background:transparent;color:#eaf0ff;text-align:left;
+  padding:9px 10px;border-radius:5px;font-size:13px;font-family:inherit;letter-spacing:0;
+}
+.custom-select-option:hover,.custom-select-option:focus-visible{background:#263754;color:#fff;outline:none}
+.custom-select-option.selected{background:#2d456b;color:#fff;font-weight:700}
+.custom-select-menu::-webkit-scrollbar{width:10px}
+.custom-select-menu::-webkit-scrollbar-track{background:#111a2d;border-radius:6px}
+.custom-select-menu::-webkit-scrollbar-thumb{background:#536783;border-radius:6px;border:2px solid #111a2d}
+@media(max-width:600px){.custom-select-menu{max-height:260px}}
+
 </style>
 </head>
 <body>
@@ -216,7 +322,7 @@ body{-webkit-text-size-adjust:100%;overscroll-behavior-y:contain}
       見出しの行から全部選択してコピーし、ここに貼り付けてください。
     </p>
     <textarea id="pastearea" rows="7" placeholder="ここに長押し→ペースト"
-      style="width:100%;background:#0d1120;color:var(--ink);border:1px solid var(--line);
+      style="width:100%;background:#162035;color:var(--ink);border:1px solid var(--line);
              border-radius:6px;padding:10px;font-size:13px;font-family:inherit;resize:vertical"></textarea>
     <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
       <button id="doPaste" type="button">読み込む</button>
@@ -256,33 +362,51 @@ body{-webkit-text-size-adjust:100%;overscroll-behavior-y:contain}
     <span><i class="sw L0"></i>未プレー</span>
   </div>
 
-  <div class="legend" style="margin-top:-8px">
-    <span><b class="tag-late">赤</b>＝並び順で不利に働く要素</span>
-    <span><b class="tag-early">緑</b>＝有利に働く要素</span>
-    <span><b class="tag-scr">黄</b>＝皿要素（個人差）</span>
-  </div>
 
-  <div class="opt">
-    <label><input type="checkbox" id="names"> 曲名を表示</label>
-    <label><input type="checkbox" id="onlyun"> 未達成のみ</label>
-    <label title="連皿・皿複合の譜面をおすすめ順で後ろに回します"><input type="checkbox" id="scrweak"> 皿が苦手</label>
-    <label>基準:
-      <select id="thr">
-        <option value="2">A-EASY以上</option>
-        <option value="3">EASY以上</option>
-        <option value="4">NORMAL以上</option>
-        <option value="5">HARD以上</option>
-      </select>
-    </label>
-    <label>傾向:
-      <select id="tendf"><option value="">すべて</option></select>
-    </label>
-  </div>
+  <div class="control-panel">
+    <h3 class="control-title">絞り込み・表示設定</h3>
 
-  <div class="searchrow">
-    <input type="search" id="q" placeholder="曲名で検索" autocomplete="off">
-    <button class="ghost" id="qclear" type="button">クリア</button>
-    <span class="hitnum" id="hitnum"></span>
+    <!-- 表示・おすすめ設定：ドロップダウンより上に配置 -->
+    <div class="control-checks control-checks-top">
+      <label class="check-item"><input type="checkbox" id="onlyun"><span class="check-text"><span>未達成の譜面だけ表示</span></span></label>
+      <label class="check-item"><input type="checkbox" id="names"><span class="check-text"><span>曲名をマス上に表示</span></span></label>
+    </div>
+
+    <div class="search-block">
+      <label class="search-label" for="q">曲名検索</label>
+      <div class="search-input-row">
+        <input type="search" id="q" placeholder="曲名を入力…" autocomplete="off">
+        <button class="ghost" id="qclear" type="button">クリア</button>
+      </div>
+      <div class="search-result"><span class="hitnum" id="hitnum"></span></div>
+    </div>
+    <div class="control-grid">
+      <div class="control-field custom-field">
+        <span class="control-label">クリア目標</span>
+        <select id="thr" aria-hidden="true" tabindex="-1">
+          <option value="2">A-EASY以上</option>
+          <option value="3">EASY以上</option>
+          <option value="4">NORMAL以上</option>
+          <option value="5">HARD以上</option>
+        </select>
+        <div class="custom-select" id="thrCustom">
+          <button class="custom-select-button" id="thrButton" type="button" aria-haspopup="listbox" aria-expanded="false">
+            <span id="thrButtonText">A-EASY以上</span><span class="custom-select-arrow">▼</span>
+          </button>
+          <div class="custom-select-menu" id="thrMenu" role="listbox"></div>
+        </div>
+      </div>
+      <div class="control-field custom-field">
+        <span class="control-label">譜面傾向</span>
+        <select id="tendf" aria-hidden="true" tabindex="-1"><option value="">すべて</option></select>
+        <div class="custom-select" id="tendCustom">
+          <button class="custom-select-button" id="tendButton" type="button" aria-haspopup="listbox" aria-expanded="false">
+            <span id="tendButtonText">すべて</span><span class="custom-select-arrow">▼</span>
+          </button>
+          <div class="custom-select-menu" id="tendMenu" role="listbox"></div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <div id="tiers"></div>
@@ -295,6 +419,20 @@ body{-webkit-text-size-adjust:100%;overscroll-behavior-y:contain}
   <div class="morerow" id="recomore"></div>
 
   <h3 class="sect">次に狙う譜面</h3>
+  <div class="legend" style="margin-bottom:10px">
+    <span><b class="tag-late">赤</b>＝並び順で不利に働く要素</span>
+    <span><b class="tag-early">緑</b>＝有利に働く要素</span>
+    <span><b class="tag-scr">黄</b>＝皿要素（個人差）</span>
+  </div>
+  <div style="margin:0 0 14px">
+    <label class="check-item">
+      <input type="checkbox" id="scrweak">
+      <span class="check-text">
+        <span>皿が苦手</span>
+        <span class="check-help">連皿・皿複合の譜面をおすすめ順位で下げます</span>
+      </span>
+    </label>
+  </div>
   <div class="tblwrap"><table><thead><tr><th></th><th>曲名</th><th>帯</th><th>傾向</th><th style="text-align:right">BP</th></tr></thead><tbody id="next"></tbody></table></div>
   <div class="morerow" id="nextmore"></div>
 </div>
@@ -546,6 +684,7 @@ function drawMore(id, total, limit, onMore){
 }
 
 function render(){
+  syncThresholdCustom();
   const thr=parseInt(document.getElementById("thr").value,10);
   const showNames=document.getElementById("names").checked;
   const onlyUn=document.getElementById("onlyun").checked;
@@ -562,6 +701,7 @@ function render(){
   tsel.innerHTML='<option value="">すべて</option>'
     + opts.map(t=>`<option value="${esc(t)}">${esc(t)} (${counts[t]})</option>`).join("");
   tsel.value = opts.includes(keep) ? keep : "";
+  syncTendencyCustom();
 
   // --- 絞り込み ---
   const q=document.getElementById("q").value.trim().toLowerCase();
@@ -829,7 +969,100 @@ document.querySelectorAll(".tab[data-mode]").forEach(t=>t.addEventListener("clic
   document.getElementById("thr").value = (MODE==="hard") ? "5" : "2";
   saveOpt(); render();
 }));
-["names","onlyun","thr","tendf","scrweak"].forEach(id=>document.getElementById(id).addEventListener("change",()=>{resetLimit();saveOpt();render();}));
+["names","onlyun","thr","scrweak"].forEach(id=>document.getElementById(id).addEventListener("change",()=>{resetLimit();saveOpt();render();}));
+
+// クリア目標：ネイティブselectは値の保持用に残し、表示だけカスタム化
+const thrCustom=document.getElementById("thrCustom");
+const thrButton=document.getElementById("thrButton");
+const thrButtonText=document.getElementById("thrButtonText");
+const thrMenu=document.getElementById("thrMenu");
+
+function closeThresholdMenu(){
+  thrCustom.classList.remove("open");
+  thrButton.setAttribute("aria-expanded","false");
+}
+function syncThresholdCustom(){
+  const sel=document.getElementById("thr");
+  const options=[...sel.options];
+  const current=sel.value;
+  const chosen=options.find(o=>o.value===current) || options[0];
+  thrButtonText.textContent=chosen ? chosen.textContent : "A-EASY以上";
+  thrMenu.innerHTML="";
+  options.forEach(o=>{
+    const b=document.createElement("button");
+    b.type="button";
+    b.className="custom-select-option"+(o.value===current?" selected":"");
+    b.textContent=o.textContent;
+    b.dataset.value=o.value;
+    b.setAttribute("role","option");
+    b.setAttribute("aria-selected",o.value===current?"true":"false");
+    b.addEventListener("click",()=>{
+      sel.value=o.value;
+      closeThresholdMenu();
+      resetLimit(); saveOpt(); render();
+    });
+    thrMenu.appendChild(b);
+  });
+}
+thrButton.addEventListener("click",e=>{
+  e.stopPropagation();
+  const opening=!thrCustom.classList.contains("open");
+  closeTendencyMenu();
+  if(opening){
+    syncThresholdCustom();
+    thrCustom.classList.add("open");
+    thrButton.setAttribute("aria-expanded","true");
+  }else closeThresholdMenu();
+});
+thrMenu.addEventListener("click",e=>e.stopPropagation());
+
+// 譜面傾向：ネイティブselectは値の保持用に残し、表示だけカスタム化
+const tendCustom=document.getElementById("tendCustom");
+const tendButton=document.getElementById("tendButton");
+const tendButtonText=document.getElementById("tendButtonText");
+const tendMenu=document.getElementById("tendMenu");
+
+function closeTendencyMenu(){
+  tendCustom.classList.remove("open");
+  tendButton.setAttribute("aria-expanded","false");
+}
+function syncTendencyCustom(){
+  const sel=document.getElementById("tendf");
+  const options=[...sel.options];
+  const current=sel.value;
+  const chosen=options.find(o=>o.value===current) || options[0];
+  tendButtonText.textContent=chosen ? chosen.textContent : "すべて";
+  tendMenu.innerHTML="";
+  options.forEach(o=>{
+    const b=document.createElement("button");
+    b.type="button";
+    b.className="custom-select-option"+(o.value===current?" selected":"");
+    b.textContent=o.textContent;
+    b.dataset.value=o.value;
+    b.setAttribute("role","option");
+    b.setAttribute("aria-selected",o.value===current?"true":"false");
+    b.addEventListener("click",()=>{
+      sel.value=o.value;
+      closeTendencyMenu();
+      resetLimit(); saveOpt(); render();
+    });
+    tendMenu.appendChild(b);
+  });
+}
+tendButton.addEventListener("click",e=>{
+  e.stopPropagation();
+  const opening=!tendCustom.classList.contains("open");
+  closeThresholdMenu();
+  if(opening){
+    tendCustom.classList.add("open");
+    tendButton.setAttribute("aria-expanded","true");
+    const selected=tendMenu.querySelector(".selected");
+    if(selected) requestAnimationFrame(()=>selected.scrollIntoView({block:"nearest"}));
+  }else closeTendencyMenu();
+});
+tendMenu.addEventListener("click",e=>e.stopPropagation());
+document.addEventListener("click",()=>{ closeThresholdMenu(); closeTendencyMenu(); });
+document.addEventListener("keydown",e=>{if(e.key==="Escape"){ closeThresholdMenu(); closeTendencyMenu(); }});
 
 // 検索（入力のたびに再描画。件数が多くないので debounce は軽めに）
 let qtimer=null;
