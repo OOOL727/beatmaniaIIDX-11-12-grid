@@ -79,7 +79,28 @@ input[type=file]{position:absolute;width:1px;height:1px;opacity:0}
 .sw{width:14px;height:14px;border-radius:3px;display:inline-block}
 
 .tier{margin-bottom:22px}
-.tierhead{display:flex;align-items:baseline;gap:12px;margin-bottom:8px;flex-wrap:wrap}
+.tierhead{display:flex;align-items:baseline;gap:12px;margin-bottom:8px;flex-wrap:wrap;
+  cursor:pointer;user-select:none;padding:4px 6px;margin-left:-6px;border-radius:6px}
+.tierhead:hover{background:#161b2b}
+.tierhead:focus-visible{outline:2px solid var(--clear);outline-offset:2px}
+.caret{color:var(--dim);font-size:11px;transition:transform .15s;display:inline-block}
+.tier.open .caret{transform:rotate(90deg)}
+.detail{display:none;margin:10px 0 4px;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.tier.open .detail{display:block}
+.detail table{width:100%;border-collapse:collapse;font-size:12px}
+.detail th{background:#161b2b;position:sticky;top:0}
+.detail td,.detail th{padding:7px 10px;border-bottom:1px solid var(--line);text-align:left}
+.detail tr:last-child td{border-bottom:0}
+.detail td.lampcell{width:6px;padding:0}
+.detail td.lampcell i{display:block;width:5px;height:30px}
+.detail td.bp{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.detail td.tend{color:var(--dim)}
+.lampname{font-size:11px;white-space:nowrap}
+@media (max-width:600px){
+  .detail td,.detail th{padding:8px 7px;font-size:11px}
+  .detail td.tend{display:none}
+  .detail th.tend{display:none}
+}
 .tiername{font-size:15px;font-weight:800;letter-spacing:.1em}
 .tiernum{font-size:11px;color:var(--dim);font-variant-numeric:tabular-nums}
 .bar{height:5px;background:#1a1f31;border-radius:3px;overflow:hidden;flex:1;min-width:120px}
@@ -241,6 +262,18 @@ const TIERS = {
 };
 
 let SCORE = {}, LV = "12", MODE = "normal";
+let OPEN = new Set();
+
+const LAMPJA = {
+  "FULLCOMBO CLEAR":"FULLCOMBO", "EX HARD CLEAR":"EX-HARD", "HARD CLEAR":"HARD",
+  "CLEAR":"ノマゲ", "EASY CLEAR":"EASY", "ASSIST CLEAR":"A-EASY",
+  "FAILED":"FAILED", "NO PLAY":"未プレー"
+};
+
+function esc(v){
+  return String(v).replace(/[&<>"']/g, c =>
+    ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
 
 function norm(s){
   return String(s).replace(/[（）]/g,m=>m==="（"?"(":")")
@@ -382,16 +415,51 @@ function render(){
     if(onlyUn) rs=rs.filter(r=>r.rank<thr);
     if(onlyUn && !rs.length) return;
     rs.sort((x,y)=>y.rank-x.rank || x.title.localeCompare(y.title,"ja"));
-    const el=document.createElement("div"); el.className="tier";
-    el.innerHTML=`<div class="tierhead"><span class="tiername">${t}</span>
+
+    const el=document.createElement("div");
+    el.className="tier"+(OPEN.has(t)?" open":"");
+    const head=document.createElement("div");
+    head.className="tierhead"; head.tabIndex=0; head.setAttribute("role","button");
+    head.setAttribute("aria-expanded", OPEN.has(t)?"true":"false");
+    head.innerHTML=`<span class="caret">▶</span><span class="tiername">${esc(t)}</span>
       <span class="tiernum">${a} / ${n}　${(a/n*100).toFixed(0)}%</span>
-      <span class="bar"><i style="width:${a/n*100}%"></i></span></div>
-      <div class="grid">`+rs.map(r=>{
-        const tip=`${r.title}｜${r.lamp}${r.bp!==null?"｜BP"+r.bp:""}｜${r.tend}`;
-        return showNames
-          ? `<span class="cell wide L${r.rank}" title="${tip}">${r.title}</span>`
-          : `<span class="cell L${r.rank}" title="${tip}"></span>`;
-      }).join("")+`</div>`;
+      <span class="bar"><i style="width:${a/n*100}%"></i></span>`;
+
+    const grid=document.createElement("div");
+    grid.className="grid";
+    grid.innerHTML=rs.map(r=>{
+      const tip=`${r.title}｜${r.lamp}${r.bp!==null?"｜BP"+r.bp:""}｜${r.tend}`;
+      return showNames
+        ? `<span class="cell wide L${r.rank}" title="${esc(tip)}">${esc(r.title)}</span>`
+        : `<span class="cell L${r.rank}" title="${esc(tip)}"></span>`;
+    }).join("");
+
+    const det=document.createElement("div");
+    det.className="detail";
+    det.innerHTML=`<table><thead><tr><th></th><th>曲名</th><th>ランプ</th>
+      <th class="tend">傾向</th><th style="text-align:right">BP</th></tr></thead><tbody>`
+      + rs.map(r=>`<tr>
+          <td class="lampcell"><i class="L${r.rank}"></i></td>
+          <td>${esc(r.title)}</td>
+          <td class="lampname">${esc(LAMPJA[r.lamp]||r.lamp)}</td>
+          <td class="tend">${esc(r.tend)}</td>
+          <td class="bp">${r.bp!==null?r.bp:"—"}</td>
+        </tr>`).join("")
+      + `</tbody></table>`;
+
+    const toggle=()=>{
+      el.classList.toggle("open");
+      const o=el.classList.contains("open");
+      head.setAttribute("aria-expanded", o?"true":"false");
+      if(o) OPEN.add(t); else OPEN.delete(t);
+      saveOpt();
+    };
+    head.addEventListener("click",toggle);
+    head.addEventListener("keydown",e=>{
+      if(e.key==="Enter"||e.key===" "){ e.preventDefault(); toggle(); }
+    });
+
+    el.appendChild(head); el.appendChild(grid); el.appendChild(det);
     box.appendChild(el);
   });
 
@@ -437,6 +505,7 @@ function saveOpt(){
   try{ localStorage.setItem(KEYO, JSON.stringify({
     lv:LV, mode:MODE,
     thr:document.getElementById("thr").value,
+    open:[...OPEN],
     names:document.getElementById("names").checked,
     onlyun:document.getElementById("onlyun").checked
   })); }catch(e){}
@@ -451,6 +520,7 @@ function restoreOpt(){
       LV=o.lv;
       document.querySelectorAll(".tab[data-lv]").forEach(x=>x.classList.toggle("act",x.dataset.lv===LV));
     }
+    if(Array.isArray(o.open)) OPEN=new Set(o.open);
     if(o.mode==="hard"||o.mode==="normal"){
       MODE=o.mode;
       document.querySelectorAll(".tab[data-mode]").forEach(x=>x.classList.toggle("act",x.dataset.mode===MODE));
