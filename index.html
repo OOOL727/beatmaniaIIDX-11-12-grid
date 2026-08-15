@@ -351,6 +351,21 @@ function makeDiff(prev,now){
 
 const LAMPJA_BY_RANK=["未プレー","FAILED","A-EASY","EASY","NORMAL","HARD","EX-HARD","FULLCOMBO"];
 
+// ノマゲ系ゲージ(A-EASY/EASY/NORMAL)は回復が大きく、ラス殺しはBPが少なくても届きにくい。
+// 逆に前半難は後半で回復できるぶん有利。BPに重みを足して並べ替える。
+const LATE_KILL=["ラス殺し","終盤難","終盤発狂","後半難","終盤高密度乱打"];
+const EARLY_HARD=["前半難","序盤発狂","開幕発狂","開幕殺し","中盤発狂"];
+
+function bpWeight(r, thr){
+  // HARD以上を狙うときはハードゲージ前提なので補正しない
+  if(thr>=5) return r.bp;
+  const t=tags(r.tend);
+  let w=r.bp;
+  if(t.some(x=>LATE_KILL.includes(x)))  w+=50;
+  if(t.some(x=>EARLY_HARD.includes(x))) w-=30;
+  return w;
+}
+
 function esc(v){
   return String(v).replace(/[&<>"']/g, c =>
     ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -613,7 +628,9 @@ function render(){
     : `<tr><td colspan="4" style="color:var(--dim)">未プレーの譜面はありません。</td></tr>`;
 
   // 次に狙う譜面
-  const nx=data.filter(r=>r.rank<thr && r.bp!==null).sort((a,b)=>a.bp-b.bp).slice(0,25);
+  const nx=data.filter(r=>r.rank<thr && r.bp!==null)
+    .sort((a,b)=>bpWeight(a,thr)-bpWeight(b,thr) || a.bp-b.bp)
+    .slice(0,25);
   document.getElementById("next").innerHTML = nx.length
     ? nx.map(r=>`<tr><td class="lampcell"><i class="L${r.rank}"></i></td><td>${hl(r.title,q)}</td><td>${esc(r.tier)}</td><td>${esc(r.tend)}</td><td style="text-align:right">${r.bp}</td></tr>`).join("")
     : `<tr><td colspan="5" style="color:var(--dim)">BPが記録された未達成譜面はありません。</td></tr>`;
