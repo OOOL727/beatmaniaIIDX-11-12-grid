@@ -528,6 +528,23 @@ function rowsFor(lv){
 
 function resetLimit(){ LIMIT_NX=25; LIMIT_RC=25; }
 
+// 一覧が初期表示件数を超えたときに「もっと見る」ボタンを描画する
+function drawMore(id, total, limit, onMore){
+  const el=document.getElementById(id);
+  if(!el) return;
+
+  if(total<=limit){
+    el.innerHTML="";
+    return;
+  }
+
+  const remain=total-limit;
+  el.innerHTML=`<button type="button">もっと見る <span class="cnt">残り ${remain} 件</span></button>`;
+  el.querySelector("button").addEventListener("click",()=>{
+    onMore(Math.min(limit+25,total));
+  });
+}
+
 function render(){
   const thr=parseInt(document.getElementById("thr").value,10);
   const showNames=document.getElementById("names").checked;
