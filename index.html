@@ -161,6 +161,8 @@ select{background:#0d1120;color:var(--ink);border:1px solid var(--line);
 .distrow .ct{width:74px;text-align:right;font-variant-numeric:tabular-nums;flex:none}
 
 .mark{background:rgba(63,208,255,.28);border-radius:2px}
+.tag-late{color:var(--failed);font-weight:600}
+.tag-early{color:var(--easy);font-weight:600}
 
 @media (max-width:600px){
   .distrow .nm{width:74px;font-size:11px}
@@ -364,6 +366,15 @@ function bpWeight(r, thr){
   if(t.some(x=>LATE_KILL.includes(x)))  w+=50;
   if(t.some(x=>EARLY_HARD.includes(x))) w-=30;
   return w;
+}
+
+// 傾向テキストを「・」区切りのまま、重みが乗るタグだけ色付けして返す
+function tendHtml(tend){
+  return tags(tend).map(t=>{
+    if(LATE_KILL.includes(t))  return `<span class="tag-late">${esc(t)}</span>`;
+    if(EARLY_HARD.includes(t)) return `<span class="tag-early">${esc(t)}</span>`;
+    return esc(t);
+  }).join("・");
 }
 
 function esc(v){
@@ -632,7 +643,7 @@ function render(){
     .sort((a,b)=>bpWeight(a,thr)-bpWeight(b,thr) || a.bp-b.bp)
     .slice(0,25);
   document.getElementById("next").innerHTML = nx.length
-    ? nx.map(r=>`<tr><td class="lampcell"><i class="L${r.rank}"></i></td><td>${hl(r.title,q)}</td><td>${esc(r.tier)}</td><td>${esc(r.tend)}</td><td style="text-align:right">${r.bp}</td></tr>`).join("")
+    ? nx.map(r=>`<tr><td class="lampcell"><i class="L${r.rank}"></i></td><td>${hl(r.title,q)}</td><td>${esc(r.tier)}</td><td>${thr<5?tendHtml(r.tend):esc(r.tend)}</td><td style="text-align:right">${r.bp}</td></tr>`).join("")
     : `<tr><td colspan="5" style="color:var(--dim)">BPが記録された未達成譜面はありません。</td></tr>`;
 }
 
