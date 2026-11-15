@@ -7,15 +7,17 @@
 利用許可が確認済みのデータだけを公開します。
 
 - ☆11 / ☆12: bemani2sp11 wiki
-- ☆9 / ☆10: 胡椒氏版
+- ☆9: 胡椒氏版
+- ☆10 NORMAL / HARD: NASK氏版・胡椒氏版（切り替え対応）
 
-### `feature/nask-sp10`
+### NASK氏版の公開
 
-NASK氏版 ☆10 NORMAL / HARD を開発します。
+NASK氏版 ☆10 NORMAL / HARD は、両方とも利用許可取得済みです。
+`feature/nask-sp10` で開発した対応を `main` へ統合して公開します。
 
 - 胡椒氏版と同じUI
 - Skill Rating / Skill Card / JOIN監査を共通化
-- 利用許可が確定するまで `main` へマージしない
+- 今後の難易度表更新も `main` に反映
 
 ## Skill Rating
 
