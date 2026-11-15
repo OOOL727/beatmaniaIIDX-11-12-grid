@@ -1,7 +1,7 @@
 {
-  "name": "LAMP GRID — SP☆11/☆12 地力表ビューア",
+  "name": "LAMP GRID — SP☆9〜12 地力表ビューア",
   "short_name": "LAMP GRID",
-  "description": "beatmania IIDX のスコアCSVを地力難易度表と重ねて、クリアランプを色で一覧するツール。",
+  "description": "beatmania IIDX SP☆9〜12のランプ一覧と次に狙う譜面を確認。CSVは端末内で処理。CSV不要の架空デモも利用できます。",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",

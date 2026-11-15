@@ -1,0 +1,16 @@
+name: 使ってみた感想
+description: よかった点、迷った点など、ひとことでも
+title: "[感想] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        投稿内容は公開されます。CSV、プレーヤーID、個人情報は添付しないでください。
+        スコアの共有や連絡先の記入は必要ありません。
+  - type: textarea
+    id: feedback
+    attributes:
+      label: 感想を教えてください
+      description: スマホで迷ったところ、おすすめ機能の使い心地など、自由にどうぞ。
+    validations:
+      required: true

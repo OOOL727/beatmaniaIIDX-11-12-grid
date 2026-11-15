@@ -1,0 +1,16 @@
+name: 機能・改善の提案
+description: 欲しい機能や、使いやすくするためのアイデア
+title: "[要望] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        投稿内容は公開されます。CSV、プレーヤーID、個人情報は添付しないでください。
+        実データや連絡先の記載は不要です。
+  - type: textarea
+    id: request
+    attributes:
+      label: 何ができるとうれしいですか？
+      description: 困っていること、改善案のどちらでも。ひとことでも歓迎です。
+    validations:
+      required: true

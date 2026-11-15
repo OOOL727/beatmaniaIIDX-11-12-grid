@@ -45,6 +45,12 @@ FULLCOMBO / EX-HARD / HARD / NORMAL / EASY / A-EASY / FAILED / 未プレーを
 
 ## 使いかた
 
+### CSVなしで試す
+
+初期画面の「CSVなしでサンプルを試す」から、架空のランプ・BPで体験できます。
+サンプル中は保存済みCSV・読み込み日時・ランプ差分・表示設定を書き換えません。
+終了すると開始前の表示に戻ります。自分のCSVを読み込んだ場合だけ、実データを更新します。
+
 ### 1. スコアデータを読み込む
 
 公式サイトの「スコアデータCSVダウンロード」で取得した、
@@ -763,6 +769,100 @@ const CACHE = "lampgrid-v15";
 LAMP GRIDのサーバーへアップロードされません。
 
 データの保持にはブラウザのlocalStorageを使用します。
+
+**現在、GA4は無効です。** `analytics-config.js` は測定ID未設定・`enabled: false` で、
+Googleの解析タグを読み込みません。安全第一・安心第二とし、解析の有効化は別途判断します。
+「CSVをアップロードしない」と「個人情報の送信が一切ない」は同じではありません。
+アプリの取得時にはGitHubへ通常のHTTP通信が発生し、外部リンクを開けば移動先へ通信します。
+
+将来GA4を有効にする場合も、明示的に許可するまではGoogleの解析通信を行いません。
+未選択・拒否でも全機能を使え、同意前の操作を後からまとめて送りません。
+許可と拒否は同じ見た目・同じ操作数です。フッターの「プライバシー・解析設定」から変更できます。
+拒否への変更時は送信を止め、アプリ専用の解析Cookieを削除して再読み込みします。
+保存に失敗した場合は画面に警告を残します。既送信データの遡及削除とは異なります。
+
+GA4の通信にはIPアドレス等が伴い、GoogleはCookieや端末・通信に関する情報を処理します。
+さらに、**同じ画面に読み込む外部スクリプトは、技術的にはDOMや同一オリジンの保存領域へアクセスできます。**
+イベントの許可リストは誤送信を防ぎますが、Google側のコードまで隔離・検証するものではありません。
+この信頼上の残余リスクがあるため、今回は解析を有効にしません。
+
+localStorageは暗号化された専用保管庫ではありません。共有端末・ブラウザ拡張機能や、
+同じGitHub Pagesオリジンで動く別アプリにも注意が必要です。
+「保存データを削除」は確認後にCSV・日時・差分を消去します。表示設定と解析の選択は残ります。
+サンプル中の同ボタンはサンプル終了だけを行い、実データを消しません。
+
+## フィードバック
+
+画面上部・利用中・フッターの「不具合・要望・感想」からGitHub Issuesへ進めます。
+**GitHubアカウントが必要で、投稿内容は公開されます。**
+CSV・プレーヤーID・個人情報を添付しないでください。連絡先や実データは不要です。
+難易度評価そのものへの意見は各出典元へ、表示・照合などの不具合はこのリポジトリへお願いします。
+
+## アクセス解析の準備と有効化の条件
+
+以下は将来の手順です。今回、GA4作成・実計測・DebugView確認は行っていません。
+有効化しなくてもアプリやフィードバック導線は使えます。
+
+1. 所有者が残余リスクを再確認し、GA4を直接使うか、別オリジンへの隔離や別方式を検討するか判断します。確認なしに有効化しません。
+2. GA4でこのアプリ専用のプロパティとWebストリームを作成します。URLは公開アプリの正規URLです。測定ID `G-...` は公開値ですが、認証情報・APIシークレットは不要で、リポジトリに入れません。
+3. **拡張計測は全項目OFF**にします。Googleシグナル・ユーザー提供データ収集・広告連携・User-ID・クロスドメイン設定は使いません。イベントデータ保持は必要最小限の2か月を選び、管理者権限も絞ります。
+4. 所有者の明示的な判断後にだけ `analytics-config.js` の測定IDと `enabled` を変更します。`allowedOrigins` は本番だけとし、`sw.js` のキャッシュ名も更新します。
+5. 実スコアを保存していない専用のブラウザプロファイルで、架空サンプルだけを使い、拒否中の通信ゼロ・同意後の送信内容を確認します。GA4リアルタイム／DebugViewの確認はスタブテストとは別です。確認できるまで実計測の検証済みとは扱いません。
+
+Basic方式で同意後だけタグを読み込みます。広告関係の同意は拒否のままです。
+解析Cookieは `lampgrid` prefix・アプリ専用path・host-only・30日間・延長なしに設定します。
+ページURLは正規URLに固定し、参照元はX・t.co・Twitter・GitHub・Google検索・Bingの既知origin以外は送りません。
+参照元のパス・クエリ・ハッシュや、自由なURLパラメータは送りません。
+XのUTMは `utm_source=x`・`utm_medium=social` と、`launch/update/feedback/share` の固定campaignだけを採用し、同意前には保存しません。
+
+手動イベントは `analytics.js` の許可リストに限定します。列挙値以外や余分な項目があれば、イベント全体を拒否します。
+
+| イベント | 許可する項目 |
+|---|---|
+| `demo_start` | entry: welcome / toolbar |
+| `score_import_success` | method: csv / paste |
+| `score_import_failure` | method: csv / paste、reason: invalid_input / read_error / empty_input |
+| `saved_data_restore` | 追加項目なし |
+| `table_change` | level: 9〜12、mode: normal / hard、source: nask / kosho / wiki、context: demo / actual |
+| `search_use` | context: demo / actual。各contextで同意後の初回だけ |
+| `feedback_open` | kind: bug / feature / feedback、entry: header / toolbar / footer |
+| `share_open` | entry: header / footer |
+
+CSV・貼り付け本文・ファイル名・曲名・検索語・ランプ・BP・Rating・自由記述・例外全文を渡しません。
+再描画ではイベントを送りません。自動復元・デモ・手動読み込みは分離しています。
+ページビューは手動で1回送ります。GA4標準の自動イベント（first_visit / session_start / user_engagement等）は別に確認が必要です。
+必要な列挙型項目だけカスタムディメンションに登録し、
+`demo_start`・`score_import_success`・`feedback_open` を目的別のキーイベントとして確認できます。
+
+**解析値は全利用者数ではありません。** 未同意・拒否・解析ブロック・オフラインの利用は入らず、導入前には遡れません。
+`feedback_open` はIssue投稿完了数、`share_open` はX投稿完了数・表示回数ではありません。
+数値を増やすための同意誘導や機能制限はせず、具体的な困りごとの改善を優先します。
+
+## X向け告知文案
+
+投稿は所有者が手動で行います。アプリ内のXリンクも紹介文と固定URLだけで、
+利用者の成績や検索結果を自動では含めません。XのSDK・自動投稿は使いません。
+紹介画像 `social-preview.png` は個人のCSVを使わず、架空サンプル画面から生成した1200×630画像です。
+OGP画像の配信とX上でのカード表示は別で、X側のプレビュー・キャッシュ確認が必要です。
+現在は解析無効なので、UTM付きでもGA4集計は行われません。
+
+**初回紹介**
+
+> IIDX SP☆9〜12のランプ一覧と、次に狙う1曲を確認できる「LAMP GRID」を公開中です。CSVは端末内で処理。CSVなしのデモもあります。スマホで使って迷ったところを教えてもらえるとうれしいです。非公式ツールです。 #IIDX
+>
+> https://oool727.github.io/beatmaniaIIDX-11-12-grid/?utm_source=x&utm_medium=social&utm_campaign=launch
+
+**更新紹介**
+
+> LAMP GRIDの難易度表を更新しました。NASK氏版・胡椒氏版に対応しています。まずはサンプルでもお試しください。 #IIDX
+>
+> https://oool727.github.io/beatmaniaIIDX-11-12-grid/?utm_source=x&utm_medium=social&utm_campaign=update
+
+**感想募集**
+
+> LAMP GRIDの「次に狙う譜面」、使い心地はいかがですか？ 分かりにくかった所をひとことでも教えてください。GitHubでの投稿は公開されるので、CSVや個人情報は載せないでください。 #IIDX
+>
+> https://oool727.github.io/beatmaniaIIDX-11-12-grid/?utm_source=x&utm_medium=social&utm_campaign=feedback
 
 ---
 

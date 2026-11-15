@@ -1,0 +1,27 @@
+name: 不具合の報告
+description: 表示・CSV読み込みなど、アプリの困りごと
+title: "[不具合] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        投稿内容は公開されます。CSV、プレーヤーID、個人情報は添付しないでください。
+        画像を添付する場合も、個人情報や成績を含まない範囲にしてください。
+        難易度評価そのものへの意見は、各難易度表の出典元へお願いします。
+  - type: textarea
+    id: problem
+    attributes:
+      label: 何が起きましたか？
+      description: 期待した動作との違いを教えてください。短い説明でも大丈夫です。
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 再現する操作（分かる範囲で）
+      placeholder: "例：サンプルを開始 → ☆10 → HARDに切り替える"
+  - type: input
+    id: environment
+    attributes:
+      label: 端末・ブラウザ（任意）
+      placeholder: "例：iPhone / Safari。正確な型番やバージョンは不要です。"
