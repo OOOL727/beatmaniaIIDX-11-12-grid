@@ -1,8 +1,8 @@
-const CACHE = "lampgrid-v20";
+const CACHE = "lampgrid-v21";
 const ASSETS = [
   "./", "./index.html", "./manifest.webmanifest",
   "./icon-192.png", "./icon-512.png", "./icon-512-maskable.png", "./icon-180.png",
-  "./analytics-config.js", "./analytics.js", "./demo.js", "./social-preview.png"
+  "./demo.js", "./social-preview.png"
 ];
 const ASSET_URLS = new Set(ASSETS.map(path => new URL(path, self.registration.scope).href));
 const INDEX_URL = new URL("./index.html", self.registration.scope).href;
