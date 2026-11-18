@@ -758,8 +758,8 @@ body{-webkit-text-size-adjust:100%;overscroll-behavior-y:contain}
       <p>通常表の集計・地力判定・おすすめには含めず、難度を推測してRatingへ加算することもありません。Ratingは別の固定基準表で計算するため、そちらに載る譜面は従来どおり採用されます。</p>
       <p>曲名検索と未達成フィルターは適用します。傾向情報がないため、傾向フィルターはこの欄には適用しません。</p>
       <div class="tblwrap"><table><thead><tr><th></th><th>曲名</th><th>譜面</th><th>☆</th><th>ランプ</th><th>BP</th></tr></thead><tbody id="unlistedRows"></tbody></table></div>
+      <div class="morerow" id="unlistedMore"></div>
     </details>
-    <div class="morerow" id="unlistedMore"></div>
   </section>
 
   <h3 class="sect">ランプ分布</h3>
@@ -1120,7 +1120,7 @@ function renderUnlisted(q,onlyUn,thr,showNames){
   document.getElementById("unlistedStatus").textContent=all.length
     ? `未収録 ${all.length}譜面中、現在の条件に一致 ${matching.length}譜面（表内の検索件数とは別）。`
     : "該当する譜面はありません。";
-  document.getElementById("unlistedGrid").innerHTML=lampGridHtml(visible,q,showNames);
+  document.getElementById("unlistedGrid").innerHTML=lampGridHtml(matching,q,showNames);
   document.getElementById("unlistedRows").innerHTML=matching.length
     ? visible.map(r=>`<tr><td class="lampcell"><i class="L${r.rank}"></i></td><td>${hl(r.title,q)}</td><td>${esc(r.chart)}</td><td>${r.lv}</td><td>${esc(LAMPJA[r.lamp]||r.lamp)}</td><td>${r.bp===null?"—":r.bp}</td></tr>`).join("")
     : `<tr><td colspan="6">現在の条件に一致する未収録譜面はありません。</td></tr>`;

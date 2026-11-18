@@ -292,7 +292,7 @@ class GrowthTests(unittest.TestCase):
         page.wait_for_function("navigator.serviceWorker.controller")
         page.evaluate("()=>caches.open('another-app-v1').then(c=>c.put('/unrelated',new Response('keep')))")
         cached = page.evaluate(
-            "()=>caches.open('lampgrid-v24').then(c=>c.keys()).then(rs=>rs.map(r=>r.url))"
+            "()=>caches.open('lampgrid-v25').then(c=>c.keys()).then(rs=>rs.map(r=>r.url))"
         )
         self.assertTrue(any(url.endswith("/demo.js") for url in cached))
         self.assertTrue(all(url.startswith(self.base) and "analytics" not in url for url in cached))
@@ -434,7 +434,7 @@ class GrowthTests(unittest.TestCase):
         self.assertIn("__TEST_UNKNOWN",page.locator("#unlistedRows").inner_text())
 
     def test_unlisted_safe_text_filters_pagination_and_unchanged_metrics(self):
-        page=self.page()
+        page=self.page(mobile=True)
         base=page.evaluate("""()=>LampGridDemo.createCsv([
           {level:9,table:KOSHO9},{level:10,table:TABLES.t10},
           {level:10,table:KOSHO10},{level:11,table:TABLES.t11},{level:12,table:TABLES.t12}
@@ -454,9 +454,13 @@ class GrowthTests(unittest.TestCase):
           reco:reco.innerHTML,next:next.innerHTML,rating:calculateSkillRating().rating
         })""")
         self.assertEqual(after,before)
+        self.assertEqual(page.locator("#unlistedGrid .cell").count(),31)
+        self.assertFalse(page.locator("#unlistedMore button").is_visible())
+        page.locator("#names").check()
+        self.assertEqual(page.locator("#unlistedGrid .cell.wide").count(),31)
+        self.assertLessEqual(page.evaluate("document.documentElement.scrollWidth"),390)
         page.locator("#unlistedCharts summary").click()
         self.assertEqual(page.locator("#unlistedRows tr").count(),25)
-        self.assertEqual(page.locator("#unlistedGrid .cell").count(),25)
         page.locator("#unlistedMore button").click()
         self.assertEqual(page.locator("#unlistedRows tr").count(),31)
         self.assertEqual(page.locator("#unlistedGrid .cell").count(),31)
@@ -467,6 +471,7 @@ class GrowthTests(unittest.TestCase):
         page.locator("#q").fill("__TEST_EXTRA_")
         page.wait_for_function("unlistedStatus.textContent.includes('一致 30譜面')")
         self.assertEqual(page.locator("#unlistedRows tr").count(),25)
+        self.assertEqual(page.locator("#unlistedGrid .cell").count(),30)
         page.locator("#onlyun").check()
         self.assertEqual(page.locator("#unlistedRows tr").count(),15)
         self.assertEqual(page.locator("#unlistedGrid .cell").count(),15)
