@@ -1,5 +1,7 @@
 import functools
+import csv
 import http.server
+import io
 import json
 import mimetypes
 import os
@@ -26,6 +28,18 @@ ASSETS = {
     "/", "/index.html", "/sw.js", "/manifest.webmanifest", "/demo.js", "/social-preview.png",
     "/icon-180.png", "/icon-192.png", "/icon-512.png", "/icon-512-maskable.png",
 }
+
+def score_csv(charts):
+    buffer=io.StringIO()
+    writer=csv.writer(buffer,lineterminator="\n")
+    names=["HYPER","ANOTHER","LEGGENDARIA"]
+    writer.writerow(["タイトル",*[name+" "+field for name in names for field in ["難易度","クリアタイプ","ミスカウント"]]])
+    for title,chart,level,lamp,bp in charts:
+        row=[title]+[""]*9
+        slot=["H","A","L"].index(chart)*3+1
+        row[slot:slot+3]=[level,lamp,bp]
+        writer.writerow(row)
+    return buffer.getvalue()
 
 
 class AssetHandler(http.server.SimpleHTTPRequestHandler):
@@ -266,6 +280,8 @@ class GrowthTests(unittest.TestCase):
         page.locator("#q").fill(MARKER)
         share = urlsplit(page.locator("a[href^='https://x.com/intent/post']").get_attribute("href"))
         self.assertEqual(parse_qs(share.query)["url"], [PUBLIC])
+        self.assertIn("#IIDX",parse_qs(share.query)["text"][0])
+        self.assertIn("#LAMPGRID",parse_qs(share.query)["text"][0])
         self.assertNotIn(MARKER, share.query)
         self.assertEqual(self.remote, [])
         self.assertEqual(page.context.cookies(), [])
@@ -276,7 +292,7 @@ class GrowthTests(unittest.TestCase):
         page.wait_for_function("navigator.serviceWorker.controller")
         page.evaluate("()=>caches.open('another-app-v1').then(c=>c.put('/unrelated',new Response('keep')))")
         cached = page.evaluate(
-            "()=>caches.open('lampgrid-v21').then(c=>c.keys()).then(rs=>rs.map(r=>r.url))"
+            "()=>caches.open('lampgrid-v22').then(c=>c.keys()).then(rs=>rs.map(r=>r.url))"
         )
         self.assertTrue(any(url.endswith("/demo.js") for url in cached))
         self.assertTrue(all(url.startswith(self.base) and "analytics" not in url for url in cached))
@@ -308,6 +324,151 @@ class GrowthTests(unittest.TestCase):
         body = image.body()
         self.assertEqual(body[:8], b"\x89PNG\r\n\x1a\n")
         self.assertEqual(struct.unpack(">II", body[16:24]), (1200, 630))
+
+    def test_unlisted_distinguishes_source_chart_and_unrated_rows(self):
+        page=self.page()
+        entries=page.evaluate("""()=>{
+          const naskKeys=new Set(TABLES.t10.map(r=>keyOf(r[2]).join('|')));
+          const koshoOnly=KOSHO10.find(r=>!naskKeys.has(keyOf(r[2]).join('|')));
+          const blank=TABLES.t10.find(r=>r[0]&&!r[1]);
+          const unrated=TABLES.t10.find(r=>r[1]==='未定');
+          const another=TABLES.t10.find(r=>keyOf(r[2])[1]==='A'&&!naskKeys.has(keyOf(r[2])[0]+'|H'));
+          return [koshoOnly,blank,unrated,another].map(r=>({
+            title:r[2].replace(/\\((H|L)\\)\\s*$/,''),chart:keyOf(r[2])[1]
+          }));
+        }""")
+        charts=[(entry["title"],entry["chart"],10,"EX HARD CLEAR",12) for entry in entries]
+        charts.extend([
+            (entries[-1]["title"],"H",10,"FAILED",70),
+            ("__TEST_UNKNOWN","A",10,"NO PLAY",""),
+            ("__TEST_UNKNOWN","L",11,"CLEAR",10),
+        ])
+        page.evaluate("(text)=>start(text)",score_csv(charts))
+        page.locator(".tab[data-lv='10']").click()
+        page.locator("#unlistedCharts summary").click()
+        self.assertEqual(page.locator("#unlistedRows tr").count(),3)
+        rows=page.locator("#unlistedRows").inner_text()
+        self.assertIn(entries[0]["title"],rows)
+        self.assertIn("__TEST_UNKNOWN",rows)
+        self.assertNotIn(entries[1]["title"],rows)
+        self.assertNotIn(entries[2]["title"],rows)
+        for mode in ["hard","normal"]:
+            page.locator(f".tab[data-mode='{mode}']").click()
+            self.assertEqual(page.locator("#unlistedRows tr").count(),3)
+        chart=entries[-1]
+        self.assertEqual(page.evaluate("(title)=>rowsFor('10').find(r=>r.title===title).rank",chart["title"]),6)
+        page.locator("#source10Button").click()
+        page.locator("#source10Menu button").filter(has_text="胡椒").click()
+        self.assertNotIn(entries[0]["title"],page.locator("#unlistedRows").inner_text())
+        page.locator(".tab[data-lv='11']").click()
+        self.assertEqual(page.locator("#unlistedCount").inner_text(),"1")
+        self.assertIn("__TEST_UNKNOWN",page.locator("#unlistedRows").inner_text())
+
+    def test_unlisted_safe_text_filters_pagination_and_unchanged_metrics(self):
+        page=self.page()
+        base=page.evaluate("""()=>LampGridDemo.createCsv([
+          {level:9,table:KOSHO9},{level:10,table:TABLES.t10},
+          {level:10,table:KOSHO10},{level:11,table:TABLES.t11},{level:12,table:TABLES.t12}
+        ],keyOf)""")
+        page.evaluate("(text)=>start(text)",base)
+        before=page.evaluate("""()=>({
+          sum:sum.innerHTML,dist:dist.innerHTML,verdict:verdict.innerHTML,
+          reco:reco.innerHTML,next:next.innerHTML,rating:calculateSkillRating().rating
+        })""")
+        unsafe='<img src=x onerror="window.__csvExecuted=true">'
+        charts=[(f"__TEST_EXTRA_{i:02}","A",12,"NO PLAY" if i%2 else "CLEAR",i) for i in range(30)]
+        charts.append((unsafe,"L",12,"HARD CLEAR",0))
+        extra=score_csv(charts).split("\n",1)[1]
+        page.evaluate("(text)=>start(text)",base+"\n"+extra)
+        after=page.evaluate("""()=>({
+          sum:sum.innerHTML,dist:dist.innerHTML,verdict:verdict.innerHTML,
+          reco:reco.innerHTML,next:next.innerHTML,rating:calculateSkillRating().rating
+        })""")
+        self.assertEqual(after,before)
+        page.locator("#unlistedCharts summary").click()
+        self.assertEqual(page.locator("#unlistedRows tr").count(),25)
+        page.locator("#unlistedMore button").click()
+        self.assertEqual(page.locator("#unlistedRows tr").count(),31)
+        self.assertIn(unsafe,page.locator("#unlistedRows").inner_text())
+        self.assertEqual(page.locator("#unlistedRows img").count(),0)
+        self.assertTrue(page.evaluate("typeof window.__csvExecuted==='undefined'"))
+        page.locator("#q").fill("__TEST_EXTRA_")
+        page.wait_for_function("unlistedStatus.textContent.includes('一致 30譜面')")
+        self.assertEqual(page.locator("#unlistedRows tr").count(),25)
+        page.locator("#onlyun").check()
+        self.assertEqual(page.locator("#unlistedRows tr").count(),15)
+        page.evaluate("LIMIT_UNLISTED=50; unlistedCharts.open=true")
+        saved=self.storage(page)
+        page.locator("#demoAgain").click()
+        page.locator(".tab[data-lv='10']").click()
+        page.locator("#demoExit").click()
+        self.assertTrue(page.evaluate("LIMIT_UNLISTED===50 && unlistedCharts.open"))
+        self.assertEqual(self.storage(page),saved)
+        self.assertEqual(self.remote,[])
+
+    def rating_fixture(self,page,counts,ranks=None):
+        return page.evaluate("""({counts,ranks})=>{
+          const fixture={};
+          for(const [lv,count] of Object.entries(counts)){
+            fixture[lv]=Array.from({length:count},(_,i)=>({
+              tier:'F',title:'Fixture '+lv+' '+i+(i%3===0?'(H)':i%3===1?'(L)':''),
+              rank:ranks?.[lv]?.[i]??7
+            }));
+          }
+          skillBandsFor=()=>['F','E','D','C','B','B+','A','A+'];
+          skillRowsFor=lv=>fixture[lv]||[];
+          const result=calculateSkillRating();
+          document.getElementById('overallSkill').innerHTML=ratingBreakdownHtml(result);
+          return result;
+        }""",{"counts":counts,"ranks":ranks})
+
+    def test_rating_actual_pools_caps_ties_and_chart_display(self):
+        page=self.page()
+        page.locator("#demoStart").click()
+        result=self.rating_fixture(page,{12:45,11:20,10:8,9:10})
+        self.assertEqual((result["rating"],result["baseRating"],result["totalBonus"]),(1225,1200,25))
+        self.assertEqual([r["title"] for r in result["top"]],[f"Fixture 12 {i}"+("(H)" if i%3==0 else "(L)" if i%3==1 else "") for i in range(40)])
+        self.assertEqual(len(result["bonusByLevel"]["11"]["rows"]),15)
+        self.assertEqual(len(result["bonusByLevel"]["10"]["rows"]),5)
+        self.assertNotIn("9",result["bonusByLevel"])
+        page.locator("#ratingBreakdown summary").click()
+        self.assertEqual(page.locator("[data-rating-role='base'] tbody tr").count(),40)
+        for lv in ["11","10"]:
+            actual=page.locator(f"[data-rating-role='bonus'][data-rating-level='{lv}'] tbody tr td:nth-child(2)").all_text_contents()
+            self.assertEqual(actual,[r["title"] for r in result["bonusByLevel"][lv]["rows"]])
+        self.assertEqual(page.locator("[data-rating-role='base'] tbody tr td:nth-child(3)").all_text_contents()[:3],["H","L","A"])
+        self.assertIn("画面で選択中の出典",page.locator("#ratingBreakdown").inner_text())
+
+    def test_rating_partial_pools_zero_excess_and_rounding(self):
+        page=self.page()
+        result=self.rating_fixture(page,{12:1,11:3,10:3},{12:[2],11:[7,2,2],10:[7,2,2]})
+        self.assertEqual((result["baseRating"],result["totalBonus"],result["rating"]),(1000,8.4,1008))
+        self.assertEqual(result["bonusByLevel"]["11"]["bonus"],6.7)
+        self.assertEqual(result["bonusByLevel"]["10"]["bonus"],1.7)
+        self.assertEqual(result["bonusByLevel"]["11"]["totalExcess"],100)
+        self.assertEqual([r["excess"] for r in result["bonusByLevel"]["11"]["rows"]],[100,0,0])
+        self.assertEqual(page.locator("[data-rating-role='base'] tbody tr").count(),1)
+        self.assertIn("0（加算0）",page.locator("#ratingBreakdown").text_content())
+        result=self.rating_fixture(page,{12:1,11:1,10:1},{12:[2],11:[5],10:[6]})
+        self.assertEqual((result["totalBonus"],result["rating"]),(0,1000))
+        result=self.rating_fixture(page,{9:1},{9:[2]})
+        self.assertEqual(result["rating"],400)
+        self.assertIn("Bonus対象はありません",page.locator("#ratingBreakdown").text_content())
+        result=self.rating_fixture(page,{9:1},{9:[1]})
+        self.assertIsNone(result["rating"])
+        self.assertIn("未判定",page.locator("#ratingBreakdown").text_content())
+
+    def test_rating_basis_is_independent_of_selected_table(self):
+        page=self.page(mobile=True)
+        page.locator("#demoStart").click()
+        before=page.evaluate("calculateSkillRating()")
+        for source in ["kosho","nask"]:
+            for mode in ["normal","hard"]:
+                page.evaluate("({source,mode})=>{LV='10';SOURCE10=source;MODE=mode;render()}",{"source":source,"mode":mode})
+                self.assertEqual(page.evaluate("calculateSkillRating()"),before)
+        page.locator("#ratingBreakdown summary").click()
+        page.locator("#unlistedCharts summary").click()
+        self.assertLessEqual(page.evaluate("document.documentElement.scrollWidth"),390)
 
 
 if __name__ == "__main__":

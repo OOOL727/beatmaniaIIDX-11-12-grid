@@ -611,7 +611,7 @@ body{-webkit-text-size-adjust:100%;overscroll-behavior-y:contain}
   <div class="sub">beatmania IIDX SP ☆9〜12 地力表（NORMAL・HARD）× スコアデータ</div>
   <nav class="growth-actions" aria-label="紹介・フィードバック">
     <button class="text-action" type="button" data-open-feedback="header">不具合・要望・感想を送る</button>
-    <a href="https://x.com/intent/post?text=IIDX%20SP%E2%98%869%E3%80%9C12%E3%81%AE%E3%83%A9%E3%83%B3%E3%83%97%E4%B8%80%E8%A6%A7%E3%81%A8%E6%AC%A1%E3%81%AE1%E6%9B%B2%E3%82%92%E3%80%82CSV%E3%81%AA%E3%81%97%E3%81%AE%E3%83%87%E3%83%A2%E3%81%A7%E8%A9%A6%E3%81%9B%E3%82%8BLAMP%20GRID%20%23IIDX&amp;url=https%3A%2F%2Foool727.github.io%2FbeatmaniaIIDX-11-12-grid%2F" target="_blank" rel="noopener noreferrer">Xで紹介する</a>
+    <a href="https://x.com/intent/post?text=IIDX%20SP%E2%98%869%E3%80%9C12%E3%81%AE%E3%83%A9%E3%83%B3%E3%83%97%E4%B8%80%E8%A6%A7%E3%81%A8%E6%AC%A1%E3%81%AE1%E6%9B%B2%E3%82%92%E3%80%82CSV%E3%81%AA%E3%81%97%E3%81%AE%E3%83%87%E3%83%A2%E3%81%A7%E8%A9%A6%E3%81%9B%E3%82%8BLAMP%20GRID%20%23IIDX%20%23LAMPGRID&amp;url=https%3A%2F%2Foool727.github.io%2FbeatmaniaIIDX-11-12-grid%2F" target="_blank" rel="noopener noreferrer">Xで紹介する</a>
   </nav>
 </header>
 
@@ -747,6 +747,15 @@ body{-webkit-text-size-adjust:100%;overscroll-behavior-y:contain}
   </div>
 
   <div id="tiers"></div>
+  <details id="unlistedCharts" style="margin:18px 0">
+    <summary style="cursor:pointer;font-weight:700">更新されていない曲（<span id="unlistedCount">0</span>譜面）</summary>
+    <p>CSVにはありますが、選択中のレベル・出典の表では照合できない譜面です。未収録・表記ゆれ・レベル変更などの可能性があり、削除曲の判定ではありません。表の「未定」とは別です。</p>
+    <p>通常表の集計・地力判定・おすすめには含めず、難度を推測してRatingへ加算することもありません。Ratingは別の固定基準表で計算するため、そちらに載る譜面は従来どおり採用されます。</p>
+    <p>曲名検索と未達成フィルターは適用します。傾向情報がないため、傾向フィルターはこの欄には適用しません。</p>
+    <p id="unlistedStatus"></p>
+    <div class="tblwrap"><table><thead><tr><th>曲名</th><th>譜面</th><th>☆</th><th>ランプ</th><th>BP</th></tr></thead><tbody id="unlistedRows"></tbody></table></div>
+    <div class="morerow" id="unlistedMore"></div>
+  </details>
 
   <h3 class="sect">ランプ分布</h3>
   <div id="dist"></div>
@@ -1045,7 +1054,7 @@ function load(text){
       if(lv!==9 && lv!==10 && lv!==11 && lv!==12) return;
       const lamp=(row[c.lamp]||"NO PLAY").trim();
       const bpRaw=(row[c.bp]||"").trim();
-      out[t+"|"+k]={lv, lamp, rank:ORD[lamp]??0, bp:/^\d+$/.test(bpRaw)?parseInt(bpRaw,10):null};
+      out[t+"|"+k]={lv, title:row[ti].trim(), chart:k, lamp, rank:ORD[lamp]??0, bp:/^\d+$/.test(bpRaw)?parseInt(bpRaw,10):null};
     });
   }
   return out;
@@ -1056,11 +1065,13 @@ function tags(tend){
   return String(tend).split(/[・､、,]/).map(x=>x.trim()).filter(Boolean);
 }
 
-function rowsFor(lv){
-  const tbl = String(lv)==="9" ? KOSHO9
+function selectedTableFor(lv){
+  return String(lv)==="9" ? KOSHO9
     : (String(lv)==="10" && SOURCE10==="kosho") ? KOSHO10
     : TABLES["t"+lv];
-  return tbl.map(row=>{
+}
+function rowsFor(lv){
+  return selectedTableFor(lv).map(row=>{
     let nt,ht,title,tend,attr,sof;
     if(row.length===7){
       // ☆10(NASK): NORMAL/HARDで「地力・個人差」情報が別なので傾向も切り替える
@@ -1077,6 +1088,27 @@ function rowsFor(lv){
             title,tend,attr,sof,
             rank:sc?sc.rank:0, lamp:sc?sc.lamp:"NO PLAY", bp:sc?sc.bp:null};
   });
+}
+
+function unlistedRowsFor(lv){
+  const keys=new Set(selectedTableFor(lv).map(row=>keyOf(row[2]).join("|")));
+  return Object.entries(SCORE)
+    .filter(([key,score])=>score.lv===Number(lv) && !keys.has(key))
+    .map(([,score])=>score);
+}
+let LIMIT_UNLISTED=25;
+function renderUnlisted(q,onlyUn,thr){
+  const all=unlistedRowsFor(LV);
+  const matching=all.filter(r=>(!q || r.title.toLowerCase().includes(q)) && (!onlyUn || r.rank<thr))
+    .sort((a,b)=>b.rank-a.rank || a.title.localeCompare(b.title,"ja") || a.chart.localeCompare(b.chart));
+  document.getElementById("unlistedCount").textContent=all.length;
+  document.getElementById("unlistedStatus").textContent=all.length
+    ? `未収録 ${all.length}譜面中、現在の条件に一致 ${matching.length}譜面（表内の検索件数とは別）。`
+    : "該当する譜面はありません。";
+  document.getElementById("unlistedRows").innerHTML=matching.length
+    ? matching.slice(0,LIMIT_UNLISTED).map(r=>`<tr><td>${hl(r.title,q)}</td><td>${esc(r.chart)}</td><td>${r.lv}</td><td>${esc(LAMPJA[r.lamp]||r.lamp)}</td><td>${r.bp===null?"—":r.bp}</td></tr>`).join("")
+    : `<tr><td colspan="5">現在の条件に一致する未収録譜面はありません。</td></tr>`;
+  drawMore("unlistedMore",matching.length,LIMIT_UNLISTED,n=>{LIMIT_UNLISTED=n;render();});
 }
 
 function chartJoinAudit(){
@@ -1101,7 +1133,7 @@ function chartJoinAudit(){
   }
   return {missingChart,suspicious};
 }
-function resetLimit(){ LIMIT_NX=25; LIMIT_RC=25; }
+function resetLimit(){ LIMIT_NX=25; LIMIT_RC=25; LIMIT_UNLISTED=25; }
 
 // 一覧が初期表示件数を超えたときに「もっと見る」ボタンを描画する
 function drawMore(id, total, limit, onMore){
@@ -1192,7 +1224,7 @@ function levelLampRate(lv,minRank){
 }
 // 試験版 Skill Rating
 // 「どれだけ曲数を触ったか」ではなく、難しい譜面で得た上位実績を評価する。
-// 各譜面 = 難度基礎点 × ランプ倍率。全譜面合計ではなく上位60譜面の平均を採用。
+// 各譜面 = 難度基礎点 + ランプ加点。適正☆の上位40譜面平均を本体とする。
 function ratingBandIndex(lv,tier){
   const bands=skillBandsFor(lv);
   const i=bands.indexOf(tier);
@@ -1236,6 +1268,7 @@ function calculateSkillRating(){
       if(base===null || bonus===null) continue;
       out.push({
         lv,tier:r.tier,title:r.title,rank:r.rank,
+        chart:keyOf(r.title)[1],basePoints:base,lampPoints:bonus,
         rawPoints:base+bonus,
         points:base+bonus
       });
@@ -1247,12 +1280,11 @@ function calculateSkillRating(){
   const main=scoredRows(proper).slice(0,40);
   if(!main.length) return {
     rating:null,count:0,top:[],proper,baseRating:null,totalBonus:0,
-    bonusByLevel:{},byLevel:{},best:null,worst:null
+    bonusByLevel:{},byLevel:{},best:null,worst:null,baseTotal:0
   };
 
-  const baseRating=Math.round(
-    main.reduce((sum,x)=>sum+x.rawPoints,0)/main.length
-  );
+  const baseTotal=main.reduce((sum,x)=>sum+x.rawPoints,0);
+  const baseRating=Math.round(baseTotal/main.length);
 
   // 下位☆はRating本体へ混ぜず「ボーナス」にする。
   // -1☆：上位15曲。下位☆HARD相当を超える強さをBonus化（最大+20）
@@ -1283,9 +1315,8 @@ function calculateSkillRating(){
     const lowerFloor=ratingBase(lv,skillBandsFor(lv)[0]) || 0;
     const target=lowerFloor + (rule.diff===1 ? 100 : 150);
     const excesses=pool.map(x=>Math.max(0,x.rawPoints-target));
-    const avgExcess=excesses.length
-      ? excesses.reduce((a,b)=>a+b,0)/excesses.length
-      : 0;
+    const totalExcess=excesses.reduce((a,b)=>a+b,0);
+    const avgExcess=excesses.length ? totalExcess/excesses.length : 0;
 
     // -1☆は平均超過の20%、-2☆は10%をBonus化。
     const activeRate=rule.diff===1 ? 0.20 : 0.10;
@@ -1298,7 +1329,9 @@ function calculateSkillRating(){
         : 0,
       target,
       avgExcess:Math.round(avgExcess),
-      bonus:Math.round(bonus*10)/10
+      bonus:Math.round(bonus*10)/10,
+      rows:pool.map((row,i)=>({...row,excess:excesses[i]})),
+      totalExcess,rate:activeRate,maxBonus:rule.maxBonus,limit:rule.cap
     };
     auxiliary.push(...pool);
   }
@@ -1334,6 +1367,7 @@ function calculateSkillRating(){
     top:main,
     proper,
     baseRating,
+    baseTotal,
     totalBonus:Math.round(totalBonus*10)/10,
     bonusByLevel,
     byLevel,
@@ -1428,7 +1462,9 @@ function skillCardHtml(sr, properText, band, challengeText, stableText, boundary
 }
 
 function ratingBreakdownHtml(sr){
-  if(!sr || sr.rating===null) return "";
+  if(!sr) return "";
+  const basis=`<p>基準表：☆9・☆10は胡椒氏版NORMAL、☆11・☆12もNORMAL表。画面で選択中の出典・NORMAL/HARDとは独立しています。未定・個人差など評価対象外の帯や、FAILED・未プレーは採用しません。</p>`;
+  if(sr.rating===null) return `<details id="ratingBreakdown" style="margin:.45em 0"><summary style="cursor:pointer;font-weight:700">Ratingの内訳</summary>${basis}<p>未判定：適正☆に評価対象のA-EASY以上の譜面がありません。</p></details>`;
 
   const bonusParts=Object.keys(sr.bonusByLevel||{})
     .map(Number).sort((a,b)=>b-a)
@@ -1437,20 +1473,31 @@ function ratingBreakdownHtml(sr){
       return `☆${lv} +${v.bonus}pt`;
     });
 
-  const best=sr.best
-    ? `最高評価：<b>${sr.best.title}</b>（${sr.best.tier} / ${ratingLampName(sr.best.rank)} / ${Math.round(sr.best.rawPoints)}pt）`
-    : "";
-  const worst=sr.worst
-    ? `本体40曲の下限：<b>${sr.worst.title}</b>（${sr.worst.tier} / ${ratingLampName(sr.worst.rank)} / ${Math.round(sr.worst.rawPoints)}pt）`
-    : "";
+  function poolTable(rows,role,lv){
+    return `<div class="tblwrap"><table data-rating-role="${role}" data-rating-level="${lv}">
+      <thead><tr><th>順位</th><th>曲名</th><th>譜面</th><th>☆</th><th>帯</th><th>ランプ</th><th>基礎点</th><th>ランプ加点</th><th>譜面点</th>${role==="bonus"?"<th>超過分</th>":""}</tr></thead>
+      <tbody>${rows.map((r,i)=>`<tr><td>${i+1}</td><td>${esc(r.title)}</td><td>${esc(r.chart)}</td><td>${r.lv}</td><td>${esc(r.tier)}</td><td>${ratingLampName(r.rank)}</td><td>${r.basePoints}</td><td>+${r.lampPoints}</td><td>${r.rawPoints}</td>${role==="bonus"?`<td>${r.excess===0?"0（加算0）":r.excess}</td>`:""}</tr>`).join("")}</tbody>
+    </table></div>`;
+  }
+  const bonusTables=Object.keys(sr.bonusByLevel).map(Number).sort((a,b)=>b-a).map(lv=>{
+    const v=sr.bonusByLevel[lv];
+    return `<h4>☆${lv} Bonus評価対象：${v.count} / 最大${v.limit}譜面</h4>
+      <p>基準点 ${v.target}pt。超過分＝max(0, 譜面点−基準点)。超過0の採用曲も平均の分母に含みます。</p>
+      ${v.count?poolTable(v.rows,"bonus",lv):"<p>採用曲はありません。</p>"}
+      <p>${v.count?`超過合計 ${v.totalExcess} ÷ ${v.count} × ${v.rate*100}%`:"採用0譜面"}
+        → 上限 +${v.maxBonus}pt、確定Bonus <b>+${v.bonus}pt</b>（小数1桁に丸め）。</p>`;
+  }).join("");
 
-  return `<details style="margin:.45em 0">
+  return `<details id="ratingBreakdown" style="margin:.45em 0">
     <summary style="cursor:pointer;font-weight:700">Ratingの内訳</summary>
     <div style="margin-top:.4em;line-height:1.75">
       <div>Base <b>${sr.baseRating}</b> ＋ Bonus <b>${sr.totalBonus}</b>（${bonusParts.join(" / ")||"なし"}）</div>
-      <div>${best}</div>
-      <div>${worst}</div>
-      <div style="opacity:.75;font-size:.9em">Base＝☆${sr.proper}上位${sr.count}曲平均。下位☆は高ランプ実績のみBonus加算。</div>
+      ${basis}
+      <h4>Base採用曲：☆${sr.proper} ${sr.count} / 最大40譜面</h4>
+      <p>譜面点＝基礎点＋ランプ加点。Base＝合計 ${sr.baseTotal} ÷ 採用 ${sr.count}譜面を整数に丸めた <b>${sr.baseRating}pt</b>。40譜面未満の場合も実際の採用数で平均します。</p>
+      ${poolTable(sr.top,"base",sr.proper)}
+      ${bonusTables||"<p>下位☆のBonus対象はありません。</p>"}
+      <p>最終Rating＝Base ${sr.baseRating} ＋ Bonus ${sr.totalBonus} を整数に丸めた <b>${sr.rating}pt</b>。Bonus上限適用後の加点を各曲へ配分した値ではありません。</p>
     </div>
   </details>`;
 }
@@ -1647,7 +1694,8 @@ function render(){
   });
   const filtering = !!(q||tf);
   document.getElementById("hitnum").textContent =
-    filtering ? `${data.length} 件` : "";
+    filtering ? `表内 ${data.length} 件` : "";
+  renderUnlisted(q,onlyUn,thr);
 
   // サマリー
   const cnt={}; for(let i=0;i<=7;i++) cnt[i]=0;
@@ -1944,7 +1992,8 @@ function restoreDemoState(redraw=true){
   IS_DEMO=false;
   DEMO_SNAPSHOT=null;
   ({score:SCORE,lv:LV,mode:MODE,source:SOURCE10,open:OPEN,
-    nx:LIMIT_NX,rc:LIMIT_RC,scratch:SCRATCH_WEAK,prev:PREV,diff:DIFFTEXT}=s);
+    nx:LIMIT_NX,rc:LIMIT_RC,unlisted:LIMIT_UNLISTED,scratch:SCRATCH_WEAK,prev:PREV,diff:DIFFTEXT}=s);
+  document.getElementById("unlistedCharts").open=s.unlistedOpen;
   DEMO_CONTROLS.forEach(id=>{
     const el=document.getElementById(id);
     if(el.type==="checkbox") el.checked=s.controls[id];
@@ -1977,7 +2026,8 @@ function enterDemo(){
   }));
   DEMO_SNAPSHOT={
     score:SCORE,lv:LV,mode:MODE,source:SOURCE10,open:OPEN,
-    nx:LIMIT_NX,rc:LIMIT_RC,scratch:SCRATCH_WEAK,prev:PREV,diff:DIFFTEXT,controls,
+    nx:LIMIT_NX,rc:LIMIT_RC,unlisted:LIMIT_UNLISTED,scratch:SCRATCH_WEAK,prev:PREV,diff:DIFFTEXT,controls,
+    unlistedOpen:document.getElementById("unlistedCharts").open,
     appHidden:document.getElementById("app").classList.contains("hide"),
     dropHidden:document.getElementById("drop").classList.contains("hide"),
     pasteHidden:document.getElementById("pastebox").classList.contains("hide"),
@@ -1989,6 +2039,7 @@ function enterDemo(){
     {level:10,table:KOSHO10},{level:11,table:TABLES.t11},{level:12,table:TABLES.t12}
   ],keyOf);
   IS_DEMO=true;
+  document.getElementById("unlistedCharts").open=false;
   LV="12"; MODE="normal"; SOURCE10="nask"; OPEN=new Set();
   PREV=null; DIFFTEXT=null;
   document.getElementById("q").value="";
