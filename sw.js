@@ -1,4 +1,4 @@
-const CACHE = "lampgrid-v22";
+const CACHE = "lampgrid-v23";
 const ASSETS = [
   "./", "./index.html", "./manifest.webmanifest",
   "./icon-192.png", "./icon-512.png", "./icon-512-maskable.png", "./icon-180.png",
@@ -8,7 +8,9 @@ const ASSET_URLS = new Set(ASSETS.map(path => new URL(path, self.registration.sc
 const INDEX_URL = new URL("./index.html", self.registration.scope).href;
 
 self.addEventListener("install", e => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting()));
+  e.waitUntil(caches.open(CACHE)
+    .then(c => c.addAll(ASSETS.map(path => new Request(path, {cache:"no-cache"}))))
+    .then(() => self.skipWaiting()));
 });
 
 self.addEventListener("activate", e => {
@@ -29,7 +31,7 @@ self.addEventListener("fetch", e => {
   if (!ASSET_URLS.has(url.href)) return;
   const key = url.href;
   e.respondWith(
-    fetch(e.request)
+    fetch(e.request, {cache:"no-cache"})
       .then(res => {
         if (res.ok && res.type === "basic") {
           const copy = res.clone();

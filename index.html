@@ -2411,10 +2411,11 @@ document.getElementById("qclear").addEventListener("click",()=>{
   if("serviceWorker" in navigator){
     // 新しい版に入れ替わったら一度だけ自動リロード
     // 初回インストール時は controller が無い状態から付くだけなのでリロードしない
-    const hadController = !!navigator.serviceWorker.controller;
+    let hadController = !!navigator.serviceWorker.controller;
     let reloading=false;
     navigator.serviceWorker.addEventListener("controllerchange",()=>{
-      if(!hadController || reloading) return;
+      if(!hadController){ hadController=true; return; }
+      if(reloading) return;
       reloading=true;
       location.reload();
     });

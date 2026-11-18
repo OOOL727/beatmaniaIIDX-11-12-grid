@@ -292,7 +292,7 @@ class GrowthTests(unittest.TestCase):
         page.wait_for_function("navigator.serviceWorker.controller")
         page.evaluate("()=>caches.open('another-app-v1').then(c=>c.put('/unrelated',new Response('keep')))")
         cached = page.evaluate(
-            "()=>caches.open('lampgrid-v22').then(c=>c.keys()).then(rs=>rs.map(r=>r.url))"
+            "()=>caches.open('lampgrid-v23').then(c=>c.keys()).then(rs=>rs.map(r=>r.url))"
         )
         self.assertTrue(any(url.endswith("/demo.js") for url in cached))
         self.assertTrue(all(url.startswith(self.base) and "analytics" not in url for url in cached))
@@ -324,6 +324,75 @@ class GrowthTests(unittest.TestCase):
         body = image.body()
         self.assertEqual(body[:8], b"\x89PNG\r\n\x1a\n")
         self.assertEqual(struct.unpack(">II", body[16:24]), (1200, 630))
+
+    def test_mobile_update_revalidates_cached_html_and_preserves_saved_data(self):
+        state={"updated":False}
+        html=(ROOT/"index.html").read_text(encoding="utf-8")
+        worker=(ROOT/"sw.js").read_text(encoding="utf-8")
+        previous_worker="""
+          self.addEventListener('install',()=>self.skipWaiting());
+          self.addEventListener('activate',e=>e.waitUntil(self.clients.claim()));
+          self.addEventListener('fetch',e=>{
+            if(e.request.method==='GET') e.respondWith(fetch(e.request));
+          });
+        """
+
+        class ReleaseHandler(AssetHandler):
+            def do_GET(handler):
+                path=urlsplit(handler.path).path
+                if path in ["/","/index.html"]:
+                    release="new" if state["updated"] else "old"
+                    body=html.replace("<body>",f'<body data-release="{release}">',1)
+                    content_type="text/html; charset=utf-8"
+                elif path=="/sw.js":
+                    body=worker if state["updated"] else previous_worker
+                    content_type="application/javascript"
+                else:
+                    super().do_GET()
+                    return
+                payload=body.encode("utf-8")
+                handler.send_response(200)
+                handler.send_header("Content-Type",content_type)
+                handler.send_header("Content-Length",str(len(payload)))
+                handler.send_header("Cache-Control","no-cache" if path=="/sw.js" else "max-age=3600")
+                handler.end_headers()
+                handler.wfile.write(payload)
+
+        server=AssetServer(("127.0.0.1",0),functools.partial(ReleaseHandler,directory=str(ROOT)))
+        thread=threading.Thread(target=server.serve_forever,daemon=True)
+        thread.start()
+        context=self.browser.new_context(viewport={"width":390,"height":844})
+        self.contexts.append(context)
+        try:
+            page=context.new_page()
+            page.on("pageerror",lambda error:self.errors.append(str(error)))
+            navigations=[]
+            page.on("framenavigated",lambda frame:navigations.append(frame.url) if frame==page.main_frame else None)
+            page.goto(f"http://127.0.0.1:{server.server_port}/index.html",wait_until="domcontentloaded")
+            page.wait_for_function("navigator.serviceWorker.controller")
+            page.evaluate("(text)=>start(text)",CSV)
+            before=self.storage(page)
+            self.assertEqual(len(navigations),1,"First worker install must not reload the app")
+            page.evaluate("()=>caches.open('another-app-v1').then(c=>c.put('/unrelated',new Response('keep')))")
+            page.evaluate("()=>fetch('index.html').then(r=>r.text())")
+            state["updated"]=True
+            cached=page.evaluate("()=>fetch('index.html').then(r=>r.text())")
+            self.assertIn('data-release="old"',cached,"Fixture must reproduce a fresh-but-stale HTTP entry")
+            page.evaluate("()=>{navigator.serviceWorker.getRegistration().then(r=>r.update());}")
+            page.wait_for_function("document.body.dataset.release==='new'",timeout=15000)
+            self.assertEqual(self.storage(page),before)
+            self.assertEqual(len(navigations),2,"Worker upgrade must reload exactly once")
+            self.assertTrue(page.evaluate("()=>caches.has('another-app-v1')"))
+            context.set_offline(True)
+            page.reload(wait_until="domcontentloaded")
+            self.assertEqual(page.locator("body").get_attribute("data-release"),"new")
+            self.assertEqual(self.storage(page),before)
+        finally:
+            context.close()
+            self.contexts.remove(context)
+            server.shutdown()
+            server.server_close()
+            thread.join()
 
     def test_unlisted_distinguishes_source_chart_and_unrated_rows(self):
         page=self.page()
