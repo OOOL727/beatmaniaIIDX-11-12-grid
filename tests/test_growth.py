@@ -292,7 +292,7 @@ class GrowthTests(unittest.TestCase):
         page.wait_for_function("navigator.serviceWorker.controller")
         page.evaluate("()=>caches.open('another-app-v1').then(c=>c.put('/unrelated',new Response('keep')))")
         cached = page.evaluate(
-            "()=>caches.open('lampgrid-v23').then(c=>c.keys()).then(rs=>rs.map(r=>r.url))"
+            "()=>caches.open('lampgrid-v24').then(c=>c.keys()).then(rs=>rs.map(r=>r.url))"
         )
         self.assertTrue(any(url.endswith("/demo.js") for url in cached))
         self.assertTrue(all(url.startswith(self.base) and "analytics" not in url for url in cached))
@@ -456,16 +456,20 @@ class GrowthTests(unittest.TestCase):
         self.assertEqual(after,before)
         page.locator("#unlistedCharts summary").click()
         self.assertEqual(page.locator("#unlistedRows tr").count(),25)
+        self.assertEqual(page.locator("#unlistedGrid .cell").count(),25)
         page.locator("#unlistedMore button").click()
         self.assertEqual(page.locator("#unlistedRows tr").count(),31)
+        self.assertEqual(page.locator("#unlistedGrid .cell").count(),31)
         self.assertIn(unsafe,page.locator("#unlistedRows").inner_text())
         self.assertEqual(page.locator("#unlistedRows img").count(),0)
+        self.assertEqual(page.locator("#unlistedGrid img").count(),0)
         self.assertTrue(page.evaluate("typeof window.__csvExecuted==='undefined'"))
         page.locator("#q").fill("__TEST_EXTRA_")
         page.wait_for_function("unlistedStatus.textContent.includes('一致 30譜面')")
         self.assertEqual(page.locator("#unlistedRows tr").count(),25)
         page.locator("#onlyun").check()
         self.assertEqual(page.locator("#unlistedRows tr").count(),15)
+        self.assertEqual(page.locator("#unlistedGrid .cell").count(),15)
         page.evaluate("LIMIT_UNLISTED=50; unlistedCharts.open=true")
         saved=self.storage(page)
         page.locator("#demoAgain").click()
@@ -473,6 +477,48 @@ class GrowthTests(unittest.TestCase):
         page.locator("#demoExit").click()
         self.assertTrue(page.evaluate("LIMIT_UNLISTED===50 && unlistedCharts.open"))
         self.assertEqual(self.storage(page),saved)
+        self.assertEqual(self.remote,[])
+
+    def test_unlisted_lamp_grid_matches_table_on_mobile(self):
+        page=self.page(mobile=True)
+        fixture=page.evaluate("""()=>({
+          known:TABLES.t12.slice(0,8).map(r=>({
+            title:r[2].replace(/\\((H|L)\\)\\s*$/,''),chart:keyOf(r[2])[1]
+          })),
+          lamps:Array.from({length:8},(_,rank)=>Object.keys(ORD).find(lamp=>ORD[lamp]===rank))
+        })""")
+        charts=[]
+        for rank,lamp in enumerate(fixture["lamps"]):
+            known=fixture["known"][rank]
+            charts.append((known["title"],known["chart"],12,lamp,rank))
+            charts.append((f"__UNLISTED_{rank}",["H","A","L"][rank%3],12,lamp,rank))
+        unsafe='<img src=x onerror="window.__tileExecuted=true">'+"X"*150
+        charts.append((unsafe,"L",12,fixture["lamps"][5],3))
+        page.evaluate("(text)=>start(text)",score_csv(charts))
+        self.assertTrue(page.locator("#unlistedGrid").is_visible())
+        self.assertFalse(page.evaluate("unlistedCharts.open"))
+        self.assertEqual(page.locator("#unlistedGrid .cell").count(),9)
+        style="el=>{const s=getComputedStyle(el);return [s.backgroundColor,s.backgroundImage];}"
+        for rank in range(8):
+            tile=page.locator(f"#unlistedGrid .cell.L{rank}").first
+            known=page.locator(f"#tiers .cell.L{rank}").first
+            self.assertEqual(tile.evaluate(style),known.evaluate(style))
+        page.locator("#names").check()
+        self.assertEqual(page.locator("#unlistedGrid .cell.wide").count(),9)
+        for rank in range(8):
+            self.assertIn(f"__UNLISTED_{rank} ({['H','A','L'][rank%3]})",page.locator("#unlistedGrid").inner_text())
+        self.assertIn(unsafe,page.locator("#unlistedGrid").inner_text())
+        self.assertEqual(page.locator("#unlistedGrid img").count(),0)
+        self.assertTrue(page.evaluate("typeof window.__tileExecuted==='undefined'"))
+        self.assertLessEqual(page.evaluate("document.documentElement.scrollWidth"),390)
+        page.locator("#unlistedCharts summary").click()
+        self.assertEqual(page.locator("#unlistedRows .lampcell i").count(),9)
+        page.locator("#onlyun").check()
+        self.assertEqual(page.locator("#unlistedGrid .cell").count(),2)
+        self.assertEqual(page.locator("#unlistedRows tr").count(),2)
+        page.locator("#q").fill("__UNLISTED_0")
+        page.wait_for_function("document.querySelectorAll('#unlistedGrid .cell').length===1")
+        self.assertIn("__UNLISTED_0",page.locator("#unlistedRows").inner_text())
         self.assertEqual(self.remote,[])
 
     def rating_fixture(self,page,counts,ranks=None):

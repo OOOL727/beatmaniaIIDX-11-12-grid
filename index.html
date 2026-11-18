@@ -151,6 +151,7 @@ input[type=file]{position:absolute;width:1px;height:1px;opacity:0}
   border:1px solid rgba(255,255,255,.05);cursor:default;position:relative;
 }
 .cell.wide{width:auto;height:auto;padding:5px 9px;font-size:11px;border-radius:4px;color:#06121c}
+#unlistedGrid .cell.wide{max-width:100%;overflow-wrap:anywhere}
 .L7{
   background:#c9efff !important;
   background-image:linear-gradient(
@@ -747,15 +748,19 @@ body{-webkit-text-size-adjust:100%;overscroll-behavior-y:contain}
   </div>
 
   <div id="tiers"></div>
-  <details id="unlistedCharts" style="margin:18px 0">
-    <summary style="cursor:pointer;font-weight:700">更新されていない曲（<span id="unlistedCount">0</span>譜面）</summary>
-    <p>CSVにはありますが、選択中のレベル・出典の表では照合できない譜面です。未収録・表記ゆれ・レベル変更などの可能性があり、削除曲の判定ではありません。表の「未定」とは別です。</p>
-    <p>通常表の集計・地力判定・おすすめには含めず、難度を推測してRatingへ加算することもありません。Ratingは別の固定基準表で計算するため、そちらに載る譜面は従来どおり採用されます。</p>
-    <p>曲名検索と未達成フィルターは適用します。傾向情報がないため、傾向フィルターはこの欄には適用しません。</p>
+  <section class="tier" style="margin:18px 0" aria-labelledby="unlistedHeading">
+    <h3 class="tiername" id="unlistedHeading">更新されていない曲（<span id="unlistedCount">0</span>譜面）</h3>
     <p id="unlistedStatus"></p>
-    <div class="tblwrap"><table><thead><tr><th>曲名</th><th>譜面</th><th>☆</th><th>ランプ</th><th>BP</th></tr></thead><tbody id="unlistedRows"></tbody></table></div>
+    <div class="grid" id="unlistedGrid"></div>
+    <details id="unlistedCharts" style="margin-top:10px">
+      <summary style="cursor:pointer;font-weight:700">曲名・ランプ・BPの一覧</summary>
+      <p>CSVにはありますが、選択中のレベル・出典の表では照合できない譜面です。未収録・表記ゆれ・レベル変更などの可能性があり、削除曲の判定ではありません。表の「未定」とは別です。</p>
+      <p>通常表の集計・地力判定・おすすめには含めず、難度を推測してRatingへ加算することもありません。Ratingは別の固定基準表で計算するため、そちらに載る譜面は従来どおり採用されます。</p>
+      <p>曲名検索と未達成フィルターは適用します。傾向情報がないため、傾向フィルターはこの欄には適用しません。</p>
+      <div class="tblwrap"><table><thead><tr><th></th><th>曲名</th><th>譜面</th><th>☆</th><th>ランプ</th><th>BP</th></tr></thead><tbody id="unlistedRows"></tbody></table></div>
+    </details>
     <div class="morerow" id="unlistedMore"></div>
-  </details>
+  </section>
 
   <h3 class="sect">ランプ分布</h3>
   <div id="dist"></div>
@@ -1090,6 +1095,15 @@ function rowsFor(lv){
   });
 }
 
+function lampGridHtml(rows,q,showNames){
+  return rows.map(r=>{
+    const title=r.chart?`${r.title} (${r.chart})`:r.title;
+    const tip=`${title}｜${r.lamp}${r.bp!==null?"｜BP"+r.bp:""}${r.tend!==undefined?"｜"+r.tend:""}`;
+    return showNames
+      ? `<span class="cell wide L${r.rank}" title="${esc(tip)}">${hl(title,q)}</span>`
+      : `<span class="cell L${r.rank}" title="${esc(tip)}"></span>`;
+  }).join("");
+}
 function unlistedRowsFor(lv){
   const keys=new Set(selectedTableFor(lv).map(row=>keyOf(row[2]).join("|")));
   return Object.entries(SCORE)
@@ -1097,17 +1111,19 @@ function unlistedRowsFor(lv){
     .map(([,score])=>score);
 }
 let LIMIT_UNLISTED=25;
-function renderUnlisted(q,onlyUn,thr){
+function renderUnlisted(q,onlyUn,thr,showNames){
   const all=unlistedRowsFor(LV);
   const matching=all.filter(r=>(!q || r.title.toLowerCase().includes(q)) && (!onlyUn || r.rank<thr))
     .sort((a,b)=>b.rank-a.rank || a.title.localeCompare(b.title,"ja") || a.chart.localeCompare(b.chart));
+  const visible=matching.slice(0,LIMIT_UNLISTED);
   document.getElementById("unlistedCount").textContent=all.length;
   document.getElementById("unlistedStatus").textContent=all.length
     ? `未収録 ${all.length}譜面中、現在の条件に一致 ${matching.length}譜面（表内の検索件数とは別）。`
     : "該当する譜面はありません。";
+  document.getElementById("unlistedGrid").innerHTML=lampGridHtml(visible,q,showNames);
   document.getElementById("unlistedRows").innerHTML=matching.length
-    ? matching.slice(0,LIMIT_UNLISTED).map(r=>`<tr><td>${hl(r.title,q)}</td><td>${esc(r.chart)}</td><td>${r.lv}</td><td>${esc(LAMPJA[r.lamp]||r.lamp)}</td><td>${r.bp===null?"—":r.bp}</td></tr>`).join("")
-    : `<tr><td colspan="5">現在の条件に一致する未収録譜面はありません。</td></tr>`;
+    ? visible.map(r=>`<tr><td class="lampcell"><i class="L${r.rank}"></i></td><td>${hl(r.title,q)}</td><td>${esc(r.chart)}</td><td>${r.lv}</td><td>${esc(LAMPJA[r.lamp]||r.lamp)}</td><td>${r.bp===null?"—":r.bp}</td></tr>`).join("")
+    : `<tr><td colspan="6">現在の条件に一致する未収録譜面はありません。</td></tr>`;
   drawMore("unlistedMore",matching.length,LIMIT_UNLISTED,n=>{LIMIT_UNLISTED=n;render();});
 }
 
@@ -1695,7 +1711,7 @@ function render(){
   const filtering = !!(q||tf);
   document.getElementById("hitnum").textContent =
     filtering ? `表内 ${data.length} 件` : "";
-  renderUnlisted(q,onlyUn,thr);
+  renderUnlisted(q,onlyUn,thr,showNames);
 
   // サマリー
   const cnt={}; for(let i=0;i<=7;i++) cnt[i]=0;
@@ -1826,12 +1842,7 @@ function render(){
 
     const grid=document.createElement("div");
     grid.className="grid";
-    grid.innerHTML=rs.map(r=>{
-      const tip=`${r.title}｜${r.lamp}${r.bp!==null?"｜BP"+r.bp:""}｜${r.tend}`;
-      return showNames
-        ? `<span class="cell wide L${r.rank}" title="${esc(tip)}">${hl(r.title,q)}</span>`
-        : `<span class="cell L${r.rank}" title="${esc(tip)}"></span>`;
-    }).join("");
+    grid.innerHTML=lampGridHtml(rs,q,showNames);
 
     const det=document.createElement("div");
     det.className="detail";
