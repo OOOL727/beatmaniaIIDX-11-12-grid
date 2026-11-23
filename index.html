@@ -605,13 +605,14 @@ body{-webkit-text-size-adjust:100%;overscroll-behavior-y:contain}
 .rating-gauge-meta b.base-num{ color:#dfe6f2; }
 .rating-gauge-meta b.bonus-num{ color:#ffe082; }
 .rating-gauge-meta b.final-num{ color:#7af0ff; }
-.rating-overview .rating-gauge-track,
-.rating-overview .rating-gauge-labels{grid-template-columns:200fr 200fr 200fr var(--rating-top-width)}
-.rating-gauge-labels small{display:block;font-size:.9em;opacity:.8}
+.rating-level-map .rating-gauge-track,
+.rating-level-map .rating-gauge-labels{grid-template-columns:var(--rating-band-columns)}
+.rating-level-map + .rating-level-map{margin-top:.9em}
 .rating-gauge-scale{display:flex;justify-content:space-between;gap:.5em;font-size:.72em;margin-top:.35em;color:var(--dim)}
-.rating-gauge-scale .active{color:#fff;font-weight:700}
 .rating-gauge-note{font-size:.75em;color:var(--dim);line-height:1.5;margin:.55em 0 0}
-.rating-gauge-detail{margin-top:.9em}
+.rating-band-breakdown{font-size:.78em;margin-top:.5em}
+.rating-band-breakdown summary{cursor:pointer}
+.rating-band-breakdown ul{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.3em .8em;list-style:none;padding:0}
 
 </style>
 </head>
@@ -1415,58 +1416,70 @@ function ratingLampName(rank){
   return ({2:"A-EASY",3:"EASY",4:"NORMAL",5:"HARD",6:"EX-HARD",7:"FC"})[rank] || "";
 }
 
-function ratingGaugeHtml(sr){
+function ratingLevel(r){
+  return [12,11,10,9].find(lv=>r>=ratingBase(lv,skillBandsFor(lv)[0])) ?? 9;
+}
+function ratingBandsFor(lv){
+  const bands=skillBandsFor(lv);
+  const colors=["fm","f","e","d","c","bm","b","bp","am","a"];
+  return bands.map((tier,i)=>({
+    tier,min:ratingBase(lv,tier),
+    color:colors[Math.round(i*(colors.length-1)/Math.max(1,bands.length-1))]
+  }));
+}
+function ratingBandFor(r){
+  const lv=ratingLevel(r);
+  const bands=ratingBandsFor(lv);
+  const band=bands.filter(b=>r>=b.min).pop() || bands[0];
+  const aboveTop=r>=bands[bands.length-1].min+25;
+  return {...band,lv,aboveTop};
+}
+
+function ratingGaugeHtml(sr,boundary=false){
   if(!sr || sr.rating===null) return "";
 
-  const max=Math.max(1500,Math.ceil(sr.rating/100)*100);
   const totalLabel=ratingLabel(sr.rating);
   const baseLabel=ratingLabel(sr.baseRating);
-  const levels=[
-    {label:"☆9",min:400,max:600,color:"e"},
-    {label:"☆10",min:600,max:800,color:"c"},
-    {label:"☆11",min:800,max:1000,color:"b"},
-    {label:"☆12",min:1000,max,color:"am"}
-  ];
-  const activeLevel=sr.rating>=1000?3:sr.rating>=800?2:sr.rating>=600?1:0;
+  const levels=boundary?[11,12]:
+    [...new Set([sr.proper ?? ratingLevel(sr.baseRating),ratingLevel(sr.rating)])].sort((a,b)=>a-b);
   function markers(min,max){
     const pct=x=>(Math.max(min,Math.min(max,x))-min)/(max-min)*100;
     return `<span class="rating-gauge-marker base" style="left:${pct(sr.baseRating)}%" title="Base ${sr.baseRating} (${baseLabel})"></span>
       <span class="rating-gauge-marker final" style="left:${pct(sr.rating)}%" title="Final ${sr.rating} (${totalLabel})"></span>`;
   }
-  let detail="";
-  if(sr.rating>=1000){
-    const labels=["F-","F","E","D","C","B-","B","B+","A-","A"];
-    const classes=["fm","f","e","d","c","bm","b","bp","am","a"];
-    const activeIndex=sr.rating<1250?Math.floor((sr.rating-1000)/25):-1;
-    detail=`<div class="rating-gauge-detail">
-      <div class="rating-gauge-head"><b>☆12 地力帯の詳細</b></div>
-      <div class="rating-gauge-track" role="meter" aria-label="☆12 地力帯の詳細" aria-valuemin="1000" aria-valuemax="1250" aria-valuenow="${Math.min(1250,sr.rating)}" aria-valuetext="${sr.rating}pt、${totalLabel}相当">
-        ${labels.map((label,i)=>`<div class="rating-gauge-seg seg-${classes[i]} ${i===activeIndex?'active':''}"></div>`).join("")}
-        ${markers(1000,1250)}
+  const maps=levels.map(lv=>{
+    const bands=ratingBandsFor(lv);
+    const min=bands[0].min;
+    const last=bands[bands.length-1];
+    const max=lv<12?ratingBase(lv+1,skillBandsFor(lv+1)[0]):
+      Math.max(last.min+25,Math.ceil(Math.max(sr.rating,sr.baseRating)/25)*25);
+    const active=sr.rating>=min && (lv===12 || sr.rating<max)?ratingBandFor(sr.rating).tier:null;
+    const columns=bands.map((band,i)=>`${(bands[i+1]?.min ?? max)-band.min}fr`).join(" ");
+    const outside=sr.rating<min?`現在のRatingは☆${lv}入口より下です。`:
+      (lv<12 && sr.rating>=max)?`現在のRatingは☆${lv+1}以上の帯です。`:"";
+    const ranges=bands.map((band,i)=>{
+      const end=bands[i+1]?.min ?? (lv<12?max:last.min+25);
+      return `${band.min}～${end-1}pt${i===bands.length-1 && lv===12?`（${end}pt以上もこの帯）`:""}`;
+    });
+    return `<div class="rating-level-map" data-rating-level="${lv}" style="--rating-band-columns:${columns}">
+      <div class="rating-gauge-head"><b>☆${lv} Rating Map</b></div>
+      <div class="rating-gauge-track" role="meter" aria-label="☆${lv} Rating Map" aria-valuemin="${min}" aria-valuemax="${max}" aria-valuenow="${Math.max(min,Math.min(max,sr.rating))}" aria-valuetext="${sr.rating}pt、${totalLabel}相当、Base ${sr.baseRating}pt、Bonus ${sr.totalBonus}pt">
+        ${bands.map((band,i)=>`<div class="rating-gauge-seg seg-${band.color} ${band.tier===active?'active':''}" title="${esc(band.tier)}：${ranges[i]}"></div>`).join("")}
+        ${markers(min,max)}
       </div>
       <div class="rating-gauge-labels">
-        ${labels.map((label,i)=>`<span class="band ${i===activeIndex?'active':''}">${label}</span>`).join("")}
+        ${bands.map((band,i)=>`<span class="band ${band.tier===active?'active':''}" title="${esc(band.tier)}：${ranges[i]}">${esc(band.tier.replace("地力",""))}</span>`).join("")}
       </div>
-      <div class="rating-gauge-scale"><span>1000pt</span><span class="${sr.rating>=1250?"active":""}">1250pt～：A+以上</span></div>
+      <div class="rating-gauge-scale"><span>${min}pt</span><span>${max}pt${lv===12?`（最上位 ${esc(last.tier)}以上）`:""}</span></div>
+      ${outside?`<p class="rating-gauge-note">${outside}範囲外のマーカーは端に表示しています。</p>`:""}
+      <details class="rating-band-breakdown"><summary>☆${lv}のRating区切り</summary><ul>
+        ${bands.map((band,i)=>`<li>${esc(band.tier)}：${ranges[i]}</li>`).join("")}
+      </ul></details>
     </div>`;
-  }
+  }).join("");
 
   return `<div class="rating-gauge" aria-label="Skill Rating gauge">
-    <div class="rating-gauge-head">
-      <b>Skill Rating Map</b>
-      <span style="font-size:.84em;opacity:.84"><b>${sr.rating}</b>pt = ${totalLabel}相当</span>
-    </div>
-    <div class="rating-overview" style="--rating-top-width:${max-1000}fr">
-      <div class="rating-gauge-track" role="meter" aria-label="☆9～☆12 共通Ratingゲージ" aria-valuemin="400" aria-valuemax="${max}" aria-valuenow="${Math.max(400,sr.rating)}" aria-valuetext="${sr.rating}pt、${totalLabel}相当、Base ${sr.baseRating}pt、Bonus ${sr.totalBonus}pt">
-        ${levels.map((level,i)=>`<div class="rating-gauge-seg seg-${level.color} ${i===activeLevel?'active':''}"></div>`).join("")}
-        ${markers(400,max)}
-      </div>
-      <div class="rating-gauge-labels">
-        ${levels.map((level,i)=>`<span class="band ${i===activeLevel?'active':''}">${level.label}<small>${level.min}～${level.max}pt</small></span>`).join("")}
-      </div>
-      <div class="rating-gauge-scale"><span>400pt</span><span>${max}pt</span></div>
-    </div>
-    ${detail}
+    ${maps}
     <div class="rating-gauge-legend">
       <span class="rating-chip"><i class="dot-base"></i>Base ${sr.baseRating}</span>
       <span class="rating-chip"><i class="dot-final"></i>Final ${sr.rating}</span>
@@ -1477,7 +1490,7 @@ function ratingGaugeHtml(sr){
       <span>＋Bonus <b class="bonus-num">${sr.totalBonus}</b></span>
       <span>最終 <b class="final-num">${sr.rating}</b></span>
     </div>
-    <p class="rating-gauge-note">目盛りはRatingの数値帯です。適正・挑戦・安定とは別判定です。950～999ptは☆11上位～☆12入口の目安です。</p>
+    <p class="rating-gauge-note">Rating基準表の帯名と基礎点（1帯25pt）から区切りを作っています。ランプ加点を含む試験的な目安で、適正・挑戦・安定とは別判定です。${levels.length>1?"レベルをまたぐため、関連する2つのMapを表示しています。":""}</p>
   </div>`;
 }
 
@@ -1485,28 +1498,15 @@ function skillCardHtml(sr, properText, band, challengeText, stableText, boundary
   if(!sr || sr.rating===null) return "";
   const label=ratingLabel(sr.rating);
   const properLabel=boundary ? properText : `${properText} ${band}`;
-  function labelClass(t){
-    if(t.includes("F-")) return "color-fm";
-    if(t.includes("地力F")) return "color-f";
-    if(t.includes("地力E")) return "color-e";
-    if(t.includes("地力D")) return "color-d";
-    if(t.includes("地力C")) return "color-c";
-    if(t.includes("B-")) return "color-bm";
-    if(t.includes("地力B+")) return "color-bp";
-    if(t.includes("地力B")) return "color-b";
-    if(t.includes("A-")) return "color-am";
-    if(t.includes("地力A")) return "color-a";
-    return "";
-  }
   return `<div class="skill-card">
     <div class="skill-card-top">
       <div>
         <div class="skill-card-rating">${sr.rating}</div>
         <div class="skill-card-sub">Skill Rating</div>
       </div>
-      <div class="skill-card-rank ${labelClass(label)}">${label}相当</div>
+      <div class="skill-card-rank color-${ratingBandFor(sr.rating).color}">${label}相当</div>
     </div>
-    ${ratingGaugeHtml(sr)}
+    ${ratingGaugeHtml(sr,boundary)}
     <div class="skill-card-metrics">
       <div class="skill-metric proper">
         <div class="skill-metric-label">適正</div>
@@ -1568,23 +1568,8 @@ function ratingBreakdownHtml(sr){
 function ratingLabel(r){
   if(r===null) return "未判定";
 
-  // 試験的な連続Rating→地力帯マッピング。
-  // 25pt刻みを基本に、☆12ではF-～A+まで細分化する。
-  if(r>=1250) return "☆12 地力A+以上";
-  if(r>=1225) return "☆12 地力A";
-  if(r>=1200) return "☆12 地力A-";
-  if(r>=1175) return "☆12 地力B+";
-  if(r>=1150) return "☆12 地力B";
-  if(r>=1125) return "☆12 地力B-";
-  if(r>=1100) return "☆12 地力C";
-  if(r>=1075) return "☆12 地力D";
-  if(r>=1050) return "☆12 地力E";
-  if(r>=1025) return "☆12 地力F";
-  if(r>=1000) return "☆12 地力F-";
-  if(r>=950)  return "☆11 上位～☆12入口";
-  if(r>=800)  return "☆11";
-  if(r>=600)  return "☆10";
-  return "☆9";
+  const band=ratingBandFor(r);
+  return `☆${band.lv} ${band.tier}${band.aboveTop?"以上":""}`;
 }
 
 function renderOverallSkill(){
