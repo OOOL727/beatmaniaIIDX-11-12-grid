@@ -260,14 +260,69 @@ class GrowthTests(unittest.TestCase):
         snapshot = json.loads(self.storage(page)["lampgrid.snap"])
         self.assertEqual(snapshot["both|A"], {"rank": 5, "bp": 0})
         self.assertEqual(snapshot["missingnow|A"]["bp"], None)
+        page.locator("#unlistedCharts summary").click()
+        for title, text in [
+            ("Both", "31 → 0"), ("Worse", "20 → 21"),
+            ("Same", "12"), ("Missing before", "5"), ("Missing now", "—"), ("New", "0"),
+        ]:
+            row = page.locator("#unlistedRows tr").filter(has=page.get_by_text(title, exact=True))
+            self.assertEqual(row.locator("td").last.inner_text(), text)
+        bp_rows = page.locator("#unlistedRows tr").filter(has=page.get_by_text("BP only", exact=True))
+        self.assertEqual(bp_rows.locator(".bp-improved").all_text_contents(), ["27 → 20", "10 → 9"])
+        self.assertEqual(page.locator("#unlistedRows .bp-worsened").inner_text(), "20 → 21")
         page.locator("#demoAgain").click()
         self.assertEqual(page.locator("#diff").inner_text(), "")
+        self.assertEqual(page.locator(".bp-change").count(), 0)
         page.locator("#demoExit").click()
         self.assertIn("BPが減った譜面 … 3", page.locator("#diff").inner_text())
+        self.assertEqual(bp_rows.locator(".bp-improved").all_text_contents(), ["27 → 20", "10 → 9"])
         page.reload(wait_until="domcontentloaded")
         page.evaluate("(csv)=>start(csv)", score_csv(current))
         self.assertIn("ランプの更新はありませんでした。", page.locator("#diff").inner_text())
         self.assertIn("BPが減った譜面 … 0", page.locator("#diff").inner_text())
+        self.assertEqual(page.locator(".bp-change").count(), 0)
+        self.assertEqual(self.remote, [])
+
+    def test_chart_bp_changes_use_colors_in_details_and_next_targets(self):
+        page = self.page(mobile=True)
+        charts = page.evaluate("""()=>TABLES.t12.slice(0,7).map(r=>({
+          title:r[2],csvTitle:r[2].replace(/\\((H|L)\\)\\s*$/,''),chart:keyOf(r[2])[1]
+        }))""")
+        before = [27, 20, 12, "", 15, 0]
+        after = [0, 21, 12, 5, "", 0, 4]
+        previous = score_csv([
+            (r["csvTitle"], r["chart"], 12, "FAILED", bp) for r, bp in zip(charts, before)
+        ])
+        current = score_csv([
+            (r["csvTitle"], r["chart"], 12, "FAILED", bp) for r, bp in zip(charts, after)
+        ])
+        page.evaluate("(csv)=>start(csv)", previous)
+        self.assertEqual(page.locator(".bp-change").count(), 0)
+        page.evaluate("(csv)=>start(csv)", current)
+        page.evaluate("()=>{OPEN=new Set(rowsFor('12').map(r=>r.tier));render();}")
+        expected = ["27 → 0", "20 → 21", "12", "5", "—", "0", "4"]
+        for chart, text in zip(charts, expected):
+            row = page.locator("#tiers .detail tbody tr").filter(
+                has=page.get_by_text(chart["title"], exact=True)
+            )
+            self.assertEqual(row.locator("td.bp").inner_text(), text)
+            next_row = page.locator("#next tr").filter(
+                has=page.get_by_text(chart["title"], exact=True)
+            )
+            if text == "—":
+                self.assertEqual(next_row.count(), 0)
+            else:
+                self.assertEqual(next_row.locator("td").last.inner_text(), text)
+        for container in ["#tiers .detail", "#next"]:
+            for selector, color, label in [
+                (".bp-improved", "rgb(67, 224, 125)", "BP 27から0に減少"),
+                (".bp-worsened", "rgb(255, 95, 112)", "BP 20から21に増加"),
+            ]:
+                change = page.locator(container + " " + selector)
+                self.assertEqual(change.count(), 1)
+                self.assertEqual(change.evaluate("(el)=>getComputedStyle(el).color"), color)
+                self.assertEqual(change.get_attribute("aria-label"), label)
+        self.assertLessEqual(page.evaluate("document.documentElement.scrollWidth"), 390)
         self.assertEqual(self.remote, [])
 
     def test_bp_only_import_compares_legacy_snapshot_using_saved_csv(self):
@@ -292,6 +347,8 @@ class GrowthTests(unittest.TestCase):
         })
         self.assertIn("ランプの更新はありませんでした。", page.locator("#diff").inner_text())
         self.assertIn("BPが減った譜面 … 1", page.locator("#diff").inner_text())
+        page.locator("#unlistedCharts summary").click()
+        self.assertEqual(page.locator("#unlistedRows .bp-improved").inner_text(), "27 → 0")
         self.assertEqual(json.loads(self.storage(page)["lampgrid.snap"])["legacy|H"], {
             "rank": 5, "bp": 0,
         })
@@ -374,7 +431,7 @@ class GrowthTests(unittest.TestCase):
         page.wait_for_function("navigator.serviceWorker.controller")
         page.evaluate("()=>caches.open('another-app-v1').then(c=>c.put('/unrelated',new Response('keep')))")
         cached = page.evaluate(
-            "()=>caches.open('lampgrid-v26').then(c=>c.keys()).then(rs=>rs.map(r=>r.url))"
+            "()=>caches.open('lampgrid-v27').then(c=>c.keys()).then(rs=>rs.map(r=>r.url))"
         )
         self.assertTrue(any(url.endswith("/demo.js") for url in cached))
         self.assertTrue(all(url.startswith(self.base) and "analytics" not in url for url in cached))

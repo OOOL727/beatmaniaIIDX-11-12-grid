@@ -133,6 +133,9 @@ input[type=file]{position:absolute;width:1px;height:1px;opacity:0}
 .detail td.lampcell{width:6px;padding:0}
 .detail td.lampcell i{display:block;width:5px;height:30px}
 .detail td.bp{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.bp-change{white-space:nowrap;font-variant-numeric:tabular-nums}
+.bp-improved{color:var(--easy)}
+.bp-worsened{color:var(--failed)}
 .detail td.tend{color:var(--dim)}
 .lampname{font-size:11px;white-space:nowrap}
 @media (max-width:600px){
@@ -892,15 +895,14 @@ function hl(title,q){
   return esc(title.slice(0,i))+'<span class="mark">'+esc(title.slice(i,i+q.length))+'</span>'+esc(title.slice(i+q.length));
 }
 
-// 旧スナップショットはrankのみなので、BPは保存済みCSVから補う。
-function makeDiff(prev,now,previousScores={}){
+function makeDiff(prev,now){
   const up=[];
   let bpCount=0;
   for(const k in now){
     const before=prev[k];
     if(before===undefined) continue;      // 新規追加曲は差分に含めない
     const rank=typeof before==="number"?before:before.rank;
-    const bp=typeof before==="number"?previousScores[k]?.bp:before.bp;
+    const bp=before.bp;
     if(now[k].rank>rank) up.push({key:k, from:rank, to:now[k].rank});
     if(Number.isFinite(bp) && Number.isFinite(now[k].bp) && now[k].bp<bp) bpCount++;
   }
@@ -911,6 +913,14 @@ function makeDiff(prev,now,previousScores={}){
 }
 
 const LAMPJA_BY_RANK=["未プレー","FAILED","A-EASY","EASY","NORMAL","HARD","EX-HARD","FULLCOMBO"];
+
+function bpHtml(r){
+  const before=PREV?.[r.key]?.bp;
+  if(!Number.isFinite(r.bp)) return "—";
+  if(!Number.isFinite(before) || before===r.bp) return String(r.bp);
+  const improved=r.bp<before;
+  return `<span class="bp-change ${improved?"bp-improved":"bp-worsened"}" aria-label="BP ${before}から${r.bp}に${improved?"減少":"増加"}">${before} → ${r.bp}</span>`;
+}
 
 // ノマゲ系ゲージ(A-EASY/EASY/NORMAL)は回復が大きく、ラス殺しはBPが少なくても届きにくい。
 // 逆に前半難は後半で回復できるぶん有利。BPに重みを足して並べ替える。
@@ -1092,7 +1102,7 @@ function rowsFor(lv){
     // プレーデータは譜面種別まで厳密一致させる。
     // Lが無いからA、Aが無いからH、のような別譜面フォールバックは禁止。
     const sc = SCORE[n+"|"+d];
-    return {tier: (MODE==="hard"? ht : nt) || "未定",
+    return {key:n+"|"+d, tier: (MODE==="hard"? ht : nt) || "未定",
             title,tend,attr,sof,
             rank:sc?sc.rank:0, lamp:sc?sc.lamp:"NO PLAY", bp:sc?sc.bp:null};
   });
@@ -1111,7 +1121,7 @@ function unlistedRowsFor(lv){
   const keys=new Set(selectedTableFor(lv).map(row=>keyOf(row[2]).join("|")));
   return Object.entries(SCORE)
     .filter(([key,score])=>score.lv===Number(lv) && !keys.has(key))
-    .map(([,score])=>score);
+    .map(([key,score])=>({key,...score}));
 }
 let LIMIT_UNLISTED=25;
 function renderUnlisted(q,onlyUn,thr,showNames){
@@ -1125,7 +1135,7 @@ function renderUnlisted(q,onlyUn,thr,showNames){
     : "該当する譜面はありません。";
   document.getElementById("unlistedGrid").innerHTML=lampGridHtml(matching,q,showNames);
   document.getElementById("unlistedRows").innerHTML=matching.length
-    ? visible.map(r=>`<tr><td class="lampcell"><i class="L${r.rank}"></i></td><td>${hl(r.title,q)}</td><td>${esc(r.chart)}</td><td>${r.lv}</td><td>${esc(LAMPJA[r.lamp]||r.lamp)}</td><td>${r.bp===null?"—":r.bp}</td></tr>`).join("")
+    ? visible.map(r=>`<tr><td class="lampcell"><i class="L${r.rank}"></i></td><td>${hl(r.title,q)}</td><td>${esc(r.chart)}</td><td>${r.lv}</td><td>${esc(LAMPJA[r.lamp]||r.lamp)}</td><td>${bpHtml(r)}</td></tr>`).join("")
     : `<tr><td colspan="6">現在の条件に一致する未収録譜面はありません。</td></tr>`;
   drawMore("unlistedMore",matching.length,LIMIT_UNLISTED,n=>{LIMIT_UNLISTED=n;render();});
 }
@@ -1855,7 +1865,7 @@ function render(){
           <td>${hl(r.title,q)}</td>
           <td class="lampname">${esc(LAMPJA[r.lamp]||r.lamp)}</td>
           <td class="tend">${esc(r.tend)}</td>
-          <td class="bp">${r.bp!==null?r.bp:"—"}</td>
+          <td class="bp">${bpHtml(r)}</td>
         </tr>`).join("")
       + `</tbody></table>`;
 
@@ -1973,7 +1983,7 @@ function render(){
   const nx=nxAll.slice(0,LIMIT_NX);
   drawMore("nextmore", nxAll.length, LIMIT_NX, n=>{ LIMIT_NX=n; render(); });
   document.getElementById("next").innerHTML = nx.length
-    ? nx.map(r=>`<tr><td class="lampcell"><i class="L${r.rank}"></i></td><td>${hl(r.title,q)}</td><td>${esc(r.tier)}</td><td>${LV==="10"?esc(r.tend):tendHtml(r.tend,thr,r)}</td><td style="text-align:right">${r.bp===null?"—":r.bp}</td></tr>`).join("")
+    ? nx.map(r=>`<tr><td class="lampcell"><i class="L${r.rank}"></i></td><td>${hl(r.title,q)}</td><td>${esc(r.tier)}</td><td>${LV==="10"?esc(r.tend):tendHtml(r.tend,thr,r)}</td><td style="text-align:right">${bpHtml(r)}</td></tr>`).join("")
     : `<tr><td colspan="5" style="color:var(--dim)">${LV==="10"?"現在の条件で未達成の譜面はありません。":"BPが記録された未達成譜面はありません。"}</td></tr>`;
 }
 
@@ -2082,11 +2092,19 @@ function start(text, save, origin=save===false?"restore":"csv"){
         const prev=JSON.parse(localStorage.getItem(KEYS)||"null");
         const legacy=prev && Object.values(prev).some(value=>typeof value==="number");
         const previousCsv=legacy?localStorage.getItem(KEY):null;
-        DIFFTEXT = prev ? makeDiff(prev,parsed,previousCsv?load(previousCsv):{}) : null;
+        const previousScores=previousCsv?load(previousCsv):{};
+        // 旧スナップショットのBPは、保存済みCSVから補う。
+        PREV=prev?Object.fromEntries(Object.entries(prev).map(([key,value])=>
+          [key,typeof value==="number"?{rank:value,bp:previousScores[key]?.bp??null}:value]
+        )):null;
+        DIFFTEXT = PREV ? makeDiff(PREV,parsed) : null;
         const snap={};
         for(const k in parsed) snap[k]={rank:parsed[k].rank, bp:parsed[k].bp};
         localStorage.setItem(KEYS, JSON.stringify(snap));
-      }catch(e){ DIFFTEXT=null; }
+      }catch(e){
+        PREV=null; DIFFTEXT=null;
+        console.warn("LAMP GRID: score changes could not be compared or saved.",e);
+      }
     }
     SCORE=parsed;
     if(save!==false){
