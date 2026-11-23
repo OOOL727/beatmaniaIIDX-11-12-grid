@@ -220,6 +220,88 @@ class GrowthTests(unittest.TestCase):
         self.assertEqual(self.remote, [])
         self.assertEqual(page.context.cookies(), [])
 
+    def test_import_counts_bp_improvements_independently_and_saves_baseline(self):
+        previous = [
+            ("BP only", "H", 12, "HARD CLEAR", 27),
+            ("BP only", "A", 12, "CLEAR", 10),
+            ("Both", "A", 12, "CLEAR", 31),
+            ("Same", "A", 12, "CLEAR", 12),
+            ("Worse", "A", 12, "CLEAR", 20),
+            ("Missing before", "A", 12, "CLEAR", ""),
+            ("Missing now", "A", 12, "CLEAR", 15),
+            ("Zero", "A", 12, "FULLCOMBO CLEAR", 0),
+        ]
+        current = [
+            ("BP only", "H", 12, "HARD CLEAR", 20),
+            ("BP only", "A", 12, "CLEAR", 9),
+            ("Both", "A", 12, "HARD CLEAR", 0),
+            ("Same", "A", 12, "CLEAR", 12),
+            ("Worse", "A", 12, "CLEAR", 21),
+            ("Missing before", "A", 12, "CLEAR", 5),
+            ("Missing now", "A", 12, "CLEAR", "---"),
+            ("Zero", "A", 12, "FULLCOMBO CLEAR", 0),
+            ("New", "A", 12, "HARD CLEAR", 0),
+        ]
+        page = self.page(mobile=True)
+        page.locator("#f").set_input_files({
+            "name": "previous.csv", "mimeType": "text/csv",
+            "buffer": score_csv(previous).encode("utf-8"),
+        })
+        page.wait_for_function("Object.keys(SCORE).length===8")
+        self.assertEqual(page.locator("#diff").inner_text(), "")
+        page.locator("#topaste2").click()
+        page.locator("#pastearea").fill(score_csv(current))
+        page.locator("#doPaste").click()
+        self.assertEqual(page.evaluate("DIFFTEXT"), {
+            "count": 1, "byLamp": {"HARD": 1}, "bpCount": 3,
+        })
+        self.assertIn("HARD に上がった譜面 … 1", page.locator("#diff").inner_text())
+        self.assertIn("BPが減った譜面 … 3", page.locator("#diff").inner_text())
+        snapshot = json.loads(self.storage(page)["lampgrid.snap"])
+        self.assertEqual(snapshot["both|A"], {"rank": 5, "bp": 0})
+        self.assertEqual(snapshot["missingnow|A"]["bp"], None)
+        page.locator("#demoAgain").click()
+        self.assertEqual(page.locator("#diff").inner_text(), "")
+        page.locator("#demoExit").click()
+        self.assertIn("BPが減った譜面 … 3", page.locator("#diff").inner_text())
+        page.reload(wait_until="domcontentloaded")
+        page.evaluate("(csv)=>start(csv)", score_csv(current))
+        self.assertIn("ランプの更新はありませんでした。", page.locator("#diff").inner_text())
+        self.assertIn("BPが減った譜面 … 0", page.locator("#diff").inner_text())
+        self.assertEqual(self.remote, [])
+
+    def test_bp_only_import_compares_legacy_snapshot_using_saved_csv(self):
+        previous = score_csv([
+            ("Legacy", "H", 12, "HARD CLEAR", 27),
+            ("Legacy", "A", 12, "CLEAR", 31),
+        ])
+        page = self.page(seed={
+            "lampgrid.csv": previous,
+            "lampgrid.snap": json.dumps({"legacy|H": 5, "legacy|A": 4}),
+        })
+        page.locator("#f2").set_input_files({
+            "name": "updated.csv", "mimeType": "text/csv",
+            "buffer": score_csv([
+                ("Legacy", "H", 12, "HARD CLEAR", 0),
+                ("Legacy", "A", 12, "CLEAR", 31),
+            ]).encode("utf-8"),
+        })
+        page.wait_for_function("DIFFTEXT && DIFFTEXT.bpCount===1")
+        self.assertEqual(page.evaluate("DIFFTEXT"), {
+            "count": 0, "byLamp": {}, "bpCount": 1,
+        })
+        self.assertIn("ランプの更新はありませんでした。", page.locator("#diff").inner_text())
+        self.assertIn("BPが減った譜面 … 1", page.locator("#diff").inner_text())
+        self.assertEqual(json.loads(self.storage(page)["lampgrid.snap"])["legacy|H"], {
+            "rank": 5, "bp": 0,
+        })
+        page = self.page(seed={"lampgrid.snap": '{"legacy|H":4}'})
+        page.evaluate("(csv)=>start(csv)", previous)
+        self.assertEqual(page.evaluate("DIFFTEXT"), {
+            "count": 1, "byLamp": {"HARD": 1}, "bpCount": 0,
+        })
+        self.assertEqual(self.remote, [])
+
     def test_failed_import_during_demo_can_exit_without_changing_data(self):
         page = self.page(seed={
             "lampgrid.csv": CSV, "lampgrid.at": "1700000000000",
@@ -292,7 +374,7 @@ class GrowthTests(unittest.TestCase):
         page.wait_for_function("navigator.serviceWorker.controller")
         page.evaluate("()=>caches.open('another-app-v1').then(c=>c.put('/unrelated',new Response('keep')))")
         cached = page.evaluate(
-            "()=>caches.open('lampgrid-v25').then(c=>c.keys()).then(rs=>rs.map(r=>r.url))"
+            "()=>caches.open('lampgrid-v26').then(c=>c.keys()).then(rs=>rs.map(r=>r.url))"
         )
         self.assertTrue(any(url.endswith("/demo.js") for url in cached))
         self.assertTrue(all(url.startswith(self.base) and "analytics" not in url for url in cached))

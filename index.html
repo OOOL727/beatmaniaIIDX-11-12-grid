@@ -892,19 +892,22 @@ function hl(title,q){
   return esc(title.slice(0,i))+'<span class="mark">'+esc(title.slice(i,i+q.length))+'</span>'+esc(title.slice(i+q.length));
 }
 
-// 前回スナップショット(キー→rank)と今回を比べ、ランプが上がった譜面を集計
-function makeDiff(prev,now){
+// 旧スナップショットはrankのみなので、BPは保存済みCSVから補う。
+function makeDiff(prev,now,previousScores={}){
   const up=[];
+  let bpCount=0;
   for(const k in now){
     const before=prev[k];
     if(before===undefined) continue;      // 新規追加曲は差分に含めない
-    if(now[k].rank>before) up.push({key:k, from:before, to:now[k].rank});
+    const rank=typeof before==="number"?before:before.rank;
+    const bp=typeof before==="number"?previousScores[k]?.bp:before.bp;
+    if(now[k].rank>rank) up.push({key:k, from:rank, to:now[k].rank});
+    if(Number.isFinite(bp) && Number.isFinite(now[k].bp) && now[k].bp<bp) bpCount++;
   }
-  if(!up.length) return {count:0, byLamp:{}};
   const byLamp={};
   up.forEach(u=>{ const n=LAMPJA_BY_RANK[u.to]||("rank"+u.to);
                   byLamp[n]=(byLamp[n]||0)+1; });
-  return {count:up.length, byLamp};
+  return {count:up.length, byLamp, bpCount};
 }
 
 const LAMPJA_BY_RANK=["未プレー","FAILED","A-EASY","EASY","NORMAL","HARD","EX-HARD","FULLCOMBO"];
@@ -1727,15 +1730,14 @@ function render(){
 
   // --- 前回からの差分 ---
   const dbox=document.getElementById("diff");
-  if(DIFFTEXT && DIFFTEXT.count){
+  if(DIFFTEXT){
     const items=Object.entries(DIFFTEXT.byLamp)
       .sort((a,b)=>b[1]-a[1])
       .map(([nm,c])=>`<li><span class="up">${esc(nm)}</span> に上がった譜面 … ${c}</li>`).join("");
+    const lamps=DIFFTEXT.count?`<ul>${items}</ul>`:
+      `<p class="none">ランプの更新はありませんでした。</p>`;
     dbox.innerHTML=`<div class="diffbox"><h3>前回の読み込みから</h3>
-      <ul>${items}</ul></div>`;
-  } else if(DIFFTEXT){
-    dbox.innerHTML=`<div class="diffbox"><h3>前回の読み込みから</h3>
-      <p class="none">ランプの更新はありませんでした。</p></div>`;
+      ${lamps}<ul><li><span class="up">BPが減った譜面</span> … ${DIFFTEXT.bpCount}</li></ul></div>`;
   } else {
     dbox.innerHTML="";
   }
@@ -2078,9 +2080,11 @@ function start(text, save, origin=save===false?"restore":"csv"){
     if(save!==false){
       try{
         const prev=JSON.parse(localStorage.getItem(KEYS)||"null");
-        DIFFTEXT = prev ? makeDiff(prev,parsed) : null;
+        const legacy=prev && Object.values(prev).some(value=>typeof value==="number");
+        const previousCsv=legacy?localStorage.getItem(KEY):null;
+        DIFFTEXT = prev ? makeDiff(prev,parsed,previousCsv?load(previousCsv):{}) : null;
         const snap={};
-        for(const k in parsed) snap[k]=parsed[k].rank;
+        for(const k in parsed) snap[k]={rank:parsed[k].rank, bp:parsed[k].bp};
         localStorage.setItem(KEYS, JSON.stringify(snap));
       }catch(e){ DIFFTEXT=null; }
     }
@@ -2173,7 +2177,7 @@ document.getElementById("topaste2").addEventListener("click",()=>{
 });
 document.getElementById("clear").addEventListener("click",()=>{
   if(IS_DEMO){ restoreDemoState(); return; }
-  if(!confirm("このブラウザに保存したスコア・読み込み日時・ランプ差分を削除します。元に戻せません。削除しますか？")) return;
+  if(!confirm("このブラウザに保存したスコア・読み込み日時・ランプ／BP差分を削除します。元に戻せません。削除しますか？")) return;
   localStorage.removeItem(KEY); localStorage.removeItem(KEYT); localStorage.removeItem(KEYS);
   location.reload();
 });
