@@ -431,7 +431,7 @@ class GrowthTests(unittest.TestCase):
         page.wait_for_function("navigator.serviceWorker.controller")
         page.evaluate("()=>caches.open('another-app-v1').then(c=>c.put('/unrelated',new Response('keep')))")
         cached = page.evaluate(
-            "()=>caches.open('lampgrid-v27').then(c=>c.keys()).then(rs=>rs.map(r=>r.url))"
+            "()=>caches.open('lampgrid-v28').then(c=>c.keys()).then(rs=>rs.map(r=>r.url))"
         )
         self.assertTrue(any(url.endswith("/demo.js") for url in cached))
         self.assertTrue(all(url.startswith(self.base) and "analytics" not in url for url in cached))
@@ -728,6 +728,65 @@ class GrowthTests(unittest.TestCase):
         page.locator("#ratingBreakdown summary").click()
         page.locator("#unlistedCharts summary").click()
         self.assertLessEqual(page.evaluate("document.documentElement.scrollWidth"),390)
+
+    def test_rating_gauge_shows_progress_for_every_supported_level(self):
+        page=self.page(mobile=True)
+        page.locator("#demoStart").click()
+        positions=[]
+        for lv,expected in [(9,450),(10,650),(11,850),(12,1050)]:
+            result=page.evaluate("""lv=>{
+              SCORE={};
+              const first=skillBandsFor(lv)[0];
+              for(const row of skillRowsFor(lv).filter(r=>r.tier===first)){
+                SCORE[keyOf(row.title).join('|')]={rank:4,lamp:'CLEAR',bp:null,lv};
+              }
+              const result=calculateSkillRating();
+              renderOverallSkill();
+              return result;
+            }""",lv)
+            self.assertEqual((result["proper"],result["rating"]),(lv,expected))
+            self.assertEqual(page.locator(".skill-card-rating").inner_text(),str(expected))
+            gauge=page.locator(".rating-overview [role='meter']")
+            self.assertEqual(gauge.get_attribute("aria-valuenow"),str(expected))
+            self.assertEqual(page.locator(".rating-overview .band.active").inner_text().splitlines()[0],f"☆{lv}")
+            position=page.locator(".rating-overview .final").evaluate("(el)=>parseFloat(el.style.left)")
+            self.assertAlmostEqual(position,(expected-400)/1100*100,places=3)
+            widths=gauge.locator(".rating-gauge-seg").evaluate_all("(els)=>els.map(el=>el.getBoundingClientRect().width)")
+            for width,units in zip(widths,[200,200,200,500]):
+                self.assertAlmostEqual(width/sum(widths),units/1100,places=2)
+            positions.append(position)
+            self.assertEqual(page.locator(".rating-gauge-detail").count(),int(lv==12))
+            self.assertIn("別判定",page.locator(".rating-gauge-note").inner_text())
+            self.assertLessEqual(page.evaluate("document.documentElement.scrollWidth"),390)
+        self.assertEqual(positions,sorted(set(positions)))
+        self.assertEqual(self.remote,[])
+
+    def test_rating_gauge_boundaries_bonus_and_high_rating_keep_correct_positions(self):
+        page=self.page(mobile=True)
+        page.locator("#demoStart").click()
+        for final,label in [(599,"☆9"),(600,"☆10"),(799,"☆10"),(800,"☆11"),(950,"☆11"),(999,"☆11"),(1000,"☆12")]:
+            page.evaluate("""rating=>{
+              overallSkill.innerHTML=ratingGaugeHtml({rating,baseRating:rating-20,totalBonus:20});
+            }""",final)
+            self.assertEqual(page.locator(".rating-overview .band.active").inner_text().splitlines()[0],label)
+            final_position=page.locator(".rating-overview .final").evaluate("(el)=>parseFloat(el.style.left)")
+            base_position=page.locator(".rating-overview .base").evaluate("(el)=>parseFloat(el.style.left)")
+            self.assertAlmostEqual(final_position-base_position,20/1100*100,places=3)
+            self.assertEqual(page.locator(".rating-gauge-detail").count(),int(final>=1000))
+        for rating in [1250,1450,1600]:
+            page.evaluate("""rating=>{
+              overallSkill.innerHTML=ratingGaugeHtml({rating,baseRating:rating-25,totalBonus:25});
+            }""",rating)
+            self.assertEqual(page.locator(".rating-gauge-detail .band.active").count(),0)
+            self.assertIn("A+以上",page.locator(".rating-gauge-detail .rating-gauge-scale .active").inner_text())
+            gauge=page.locator(".rating-overview [role='meter']")
+            maximum=int(gauge.get_attribute("aria-valuemax"))
+            self.assertGreaterEqual(maximum,rating)
+            self.assertAlmostEqual(page.locator(".rating-overview .final").evaluate("(el)=>parseFloat(el.style.left)"),(rating-400)/(maximum-400)*100,places=3)
+            self.assertIn(f"{rating}pt",gauge.get_attribute("aria-valuetext"))
+            self.assertLessEqual(page.evaluate("document.documentElement.scrollWidth"),390)
+        page.evaluate("overallSkill.innerHTML=ratingGaugeHtml({rating:null})")
+        self.assertEqual(page.locator(".rating-gauge").count(),0)
 
 
 if __name__ == "__main__":

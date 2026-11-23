@@ -605,6 +605,13 @@ body{-webkit-text-size-adjust:100%;overscroll-behavior-y:contain}
 .rating-gauge-meta b.base-num{ color:#dfe6f2; }
 .rating-gauge-meta b.bonus-num{ color:#ffe082; }
 .rating-gauge-meta b.final-num{ color:#7af0ff; }
+.rating-overview .rating-gauge-track,
+.rating-overview .rating-gauge-labels{grid-template-columns:200fr 200fr 200fr var(--rating-top-width)}
+.rating-gauge-labels small{display:block;font-size:.9em;opacity:.8}
+.rating-gauge-scale{display:flex;justify-content:space-between;gap:.5em;font-size:.72em;margin-top:.35em;color:var(--dim)}
+.rating-gauge-scale .active{color:#fff;font-weight:700}
+.rating-gauge-note{font-size:.75em;color:var(--dim);line-height:1.5;margin:.55em 0 0}
+.rating-gauge-detail{margin-top:.9em}
 
 </style>
 </head>
@@ -1411,28 +1418,55 @@ function ratingLampName(rank){
 function ratingGaugeHtml(sr){
   if(!sr || sr.rating===null) return "";
 
-  const min=1000, max=1250;
-  const clamp=x=>Math.max(min,Math.min(max,x));
-  const pct=x=>((clamp(x)-min)/(max-min))*100;
-  const labels=["F-","F","E","D","C","B-","B","B+","A-","A"];
-  const classes=["fm","f","e","d","c","bm","b","bp","am","a"];
-  const totalLabel = ratingLabel(sr.rating).replace("☆12 ","");
-  const baseLabel = ratingLabel(sr.baseRating).replace("☆12 ","");
-  const activeIndex = Math.max(0, Math.min(9, Math.floor((clamp(sr.rating)-min)/25)));
+  const max=Math.max(1500,Math.ceil(sr.rating/100)*100);
+  const totalLabel=ratingLabel(sr.rating);
+  const baseLabel=ratingLabel(sr.baseRating);
+  const levels=[
+    {label:"☆9",min:400,max:600,color:"e"},
+    {label:"☆10",min:600,max:800,color:"c"},
+    {label:"☆11",min:800,max:1000,color:"b"},
+    {label:"☆12",min:1000,max,color:"am"}
+  ];
+  const activeLevel=sr.rating>=1000?3:sr.rating>=800?2:sr.rating>=600?1:0;
+  function markers(min,max){
+    const pct=x=>(Math.max(min,Math.min(max,x))-min)/(max-min)*100;
+    return `<span class="rating-gauge-marker base" style="left:${pct(sr.baseRating)}%" title="Base ${sr.baseRating} (${baseLabel})"></span>
+      <span class="rating-gauge-marker final" style="left:${pct(sr.rating)}%" title="Final ${sr.rating} (${totalLabel})"></span>`;
+  }
+  let detail="";
+  if(sr.rating>=1000){
+    const labels=["F-","F","E","D","C","B-","B","B+","A-","A"];
+    const classes=["fm","f","e","d","c","bm","b","bp","am","a"];
+    const activeIndex=sr.rating<1250?Math.floor((sr.rating-1000)/25):-1;
+    detail=`<div class="rating-gauge-detail">
+      <div class="rating-gauge-head"><b>☆12 地力帯の詳細</b></div>
+      <div class="rating-gauge-track" role="meter" aria-label="☆12 地力帯の詳細" aria-valuemin="1000" aria-valuemax="1250" aria-valuenow="${Math.min(1250,sr.rating)}" aria-valuetext="${sr.rating}pt、${totalLabel}相当">
+        ${labels.map((label,i)=>`<div class="rating-gauge-seg seg-${classes[i]} ${i===activeIndex?'active':''}"></div>`).join("")}
+        ${markers(1000,1250)}
+      </div>
+      <div class="rating-gauge-labels">
+        ${labels.map((label,i)=>`<span class="band ${i===activeIndex?'active':''}">${label}</span>`).join("")}
+      </div>
+      <div class="rating-gauge-scale"><span>1000pt</span><span class="${sr.rating>=1250?"active":""}">1250pt～：A+以上</span></div>
+    </div>`;
+  }
 
   return `<div class="rating-gauge" aria-label="Skill Rating gauge">
     <div class="rating-gauge-head">
       <b>Skill Rating Map</b>
       <span style="font-size:.84em;opacity:.84"><b>${sr.rating}</b>pt = ${totalLabel}相当</span>
     </div>
-    <div class="rating-gauge-track">
-      ${labels.map((label,i)=>`<div class="rating-gauge-seg seg-${classes[i]} ${i===activeIndex?'active':''}"></div>`).join("")}
-      <span class="rating-gauge-marker base" style="left:${pct(sr.baseRating)}%" title="Base ${sr.baseRating} (${baseLabel})"></span>
-      <span class="rating-gauge-marker final" style="left:${pct(sr.rating)}%" title="Final ${sr.rating} (${totalLabel})"></span>
+    <div class="rating-overview" style="--rating-top-width:${max-1000}fr">
+      <div class="rating-gauge-track" role="meter" aria-label="☆9～☆12 共通Ratingゲージ" aria-valuemin="400" aria-valuemax="${max}" aria-valuenow="${Math.max(400,sr.rating)}" aria-valuetext="${sr.rating}pt、${totalLabel}相当、Base ${sr.baseRating}pt、Bonus ${sr.totalBonus}pt">
+        ${levels.map((level,i)=>`<div class="rating-gauge-seg seg-${level.color} ${i===activeLevel?'active':''}"></div>`).join("")}
+        ${markers(400,max)}
+      </div>
+      <div class="rating-gauge-labels">
+        ${levels.map((level,i)=>`<span class="band ${i===activeLevel?'active':''}">${level.label}<small>${level.min}～${level.max}pt</small></span>`).join("")}
+      </div>
+      <div class="rating-gauge-scale"><span>400pt</span><span>${max}pt</span></div>
     </div>
-    <div class="rating-gauge-labels">
-      ${labels.map((x,i)=>`<span class="band ${i===activeIndex?'active':''}">${x}</span>`).join("")}
-    </div>
+    ${detail}
     <div class="rating-gauge-legend">
       <span class="rating-chip"><i class="dot-base"></i>Base ${sr.baseRating}</span>
       <span class="rating-chip"><i class="dot-final"></i>Final ${sr.rating}</span>
@@ -1443,13 +1477,13 @@ function ratingGaugeHtml(sr){
       <span>＋Bonus <b class="bonus-num">${sr.totalBonus}</b></span>
       <span>最終 <b class="final-num">${sr.rating}</b></span>
     </div>
+    <p class="rating-gauge-note">目盛りはRatingの数値帯です。適正・挑戦・安定とは別判定です。950～999ptは☆11上位～☆12入口の目安です。</p>
   </div>`;
 }
 
 function skillCardHtml(sr, properText, band, challengeText, stableText, boundary){
   if(!sr || sr.rating===null) return "";
   const label=ratingLabel(sr.rating);
-  const shortLabel=label.replace("☆12 ","");
   const properLabel=boundary ? properText : `${properText} ${band}`;
   function labelClass(t){
     if(t.includes("F-")) return "color-fm";
@@ -1470,7 +1504,7 @@ function skillCardHtml(sr, properText, band, challengeText, stableText, boundary
         <div class="skill-card-rating">${sr.rating}</div>
         <div class="skill-card-sub">Skill Rating</div>
       </div>
-      <div class="skill-card-rank ${labelClass(label)}">${shortLabel}相当</div>
+      <div class="skill-card-rank ${labelClass(label)}">${label}相当</div>
     </div>
     ${ratingGaugeHtml(sr)}
     <div class="skill-card-metrics">
