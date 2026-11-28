@@ -658,7 +658,7 @@ body{-webkit-text-size-adjust:100%;overscroll-behavior-y:contain}
 </div>
 
 <aside class="demo-banner" id="demoBanner" hidden>
-  <p><b>サンプル表示中：ランプ・BPは架空のデータです。</b> 保存済みのスコアや設定は変更しません。</p>
+  <p><b>サンプル表示中：☆11適正を想定した架空のランプ・BPです。</b> 保存済みのスコアや設定は変更しません。</p>
   <button id="demoExit" type="button">サンプルを終了する</button>
   <button class="ghost" id="demoImport" type="button">自分のCSVを読み込む</button>
 </aside>
@@ -2079,10 +2079,10 @@ function enterDemo(){
   const csv=window.LampGridDemo.createCsv([
     {level:9,table:KOSHO9},{level:10,table:TABLES.t10},
     {level:10,table:KOSHO10},{level:11,table:TABLES.t11},{level:12,table:TABLES.t12}
-  ],keyOf);
+  ],keyOf,skillBandsFor);
   IS_DEMO=true;
   document.getElementById("unlistedCharts").open=false;
-  LV="12"; MODE="normal"; SOURCE10="nask"; OPEN=new Set();
+  LV="11"; MODE="normal"; SOURCE10="nask"; OPEN=new Set();
   PREV=null; DIFFTEXT=null;
   document.getElementById("q").value="";
   document.getElementById("tendf").value="";
@@ -2136,7 +2136,7 @@ function start(text, save, origin=save===false?"restore":"csv"){
     document.getElementById("app").classList.remove("hide");
     document.getElementById("drop").classList.add("hide");
     const at=origin==="demo"?null:localStorage.getItem(KEYT);
-    document.getElementById("loadedat").textContent = origin==="demo"?"架空のサンプルデータ":at?"読み込み: "+fmtDate(+at):"";
+    document.getElementById("loadedat").textContent = origin==="demo"?"架空のサンプルデータ（☆11適正の想定）":at?"読み込み: "+fmtDate(+at):"";
     render();
     syncDataMode();
     return true;

@@ -1,4 +1,4 @@
-const CACHE = "lampgrid-v29";
+const CACHE = "lampgrid-v30";
 const ASSETS = [
   "./", "./index.html", "./manifest.webmanifest",
   "./icon-192.png", "./icon-512.png", "./icon-512-maskable.png", "./icon-180.png",

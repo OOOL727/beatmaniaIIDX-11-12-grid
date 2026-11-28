@@ -191,6 +191,69 @@ class GrowthTests(unittest.TestCase):
         self.assertEqual(restored, original)
         self.assertEqual(self.remote, [])
 
+    def test_demo_has_level_and_tier_dependent_lamps_for_a_level_11_player(self):
+        page=self.page()
+        before=self.storage(page)
+        page.locator("#demoStart").click()
+        self.assertIn("☆11適正",page.locator("#loadedat").inner_text())
+        self.assertEqual(page.evaluate("LV"),"11")
+        result=page.evaluate("""()=>{
+          const stats={};
+          const rates=rows=>({
+            count:rows.length,
+            clear:rows.filter(r=>r.rank>=2).length/rows.length,
+            hard:rows.filter(r=>r.rank>=5).length/rows.length,
+            unplayed:rows.filter(r=>r.rank===0).length/rows.length,
+            failed:rows.filter(r=>r.rank===1).length/rows.length
+          });
+          for(const lv of [9,10,11,12]){
+            const rows=Object.values(SCORE).filter(r=>r.lv===lv);
+            const failed=rows.filter(r=>r.rank===1);
+            const bands=skillBandsFor(lv);
+            const split=Math.ceil(bands.length/2);
+            const reference=skillRowsFor(lv);
+            stats[lv]={
+              ...rates(rows),
+              failedBp:failed.reduce((sum,r)=>sum+r.bp,0)/failed.length,
+              easier:rates(reference.filter(r=>bands.indexOf(r.tier)>=0 && bands.indexOf(r.tier)<split)),
+              harder:rates(reference.filter(r=>bands.indexOf(r.tier)>=split))
+            };
+          }
+          const tables=[KOSHO9,TABLES.t10,KOSHO10,TABLES.t11,TABLES.t12];
+          const expected=new Set(tables.flatMap(table=>table.map(row=>keyOf(row[2]).join('|'))));
+          return {
+            stats,proper:calculateSkillRating().proper,
+            expected:expected.size,actual:Object.keys(SCORE).length,
+            bpValid:Object.values(SCORE).every(r=>r.rank===0?r.bp===null:
+              r.rank===7?r.bp===0:Number.isFinite(r.bp)&&r.bp>0)
+          };
+        }""")
+        stats=result["stats"]
+        self.assertEqual(result["proper"],11,json.dumps(result,ensure_ascii=False))
+        self.assertEqual(result["actual"],result["expected"])
+        self.assertTrue(result["bpValid"])
+        self.assertGreater(stats["9"]["clear"],0.75)
+        self.assertGreater(stats["10"]["clear"],0.55)
+        self.assertGreater(stats["10"]["clear"],stats["11"]["clear"]+0.2)
+        self.assertGreater(stats["11"]["clear"],stats["12"]["clear"]+0.15)
+        self.assertLess(stats["12"]["clear"],0.2)
+        for easier,harder in [("9","10"),("10","11"),("11","12")]:
+            self.assertGreater(stats[easier]["hard"],stats[harder]["hard"])
+            self.assertLess(stats[easier]["unplayed"],stats[harder]["unplayed"])
+            self.assertLess(stats[easier]["failedBp"],stats[harder]["failedBp"])
+        for lv in ["9","10","11","12"]:
+            self.assertGreater(stats[lv]["unplayed"],0)
+            self.assertGreater(stats[lv]["failed"],0)
+            self.assertGreater(stats[lv]["easier"]["clear"],stats[lv]["harder"]["clear"])
+            self.assertGreater(stats[lv]["easier"]["hard"],stats[lv]["harder"]["hard"])
+        sample=page.evaluate("JSON.stringify(SCORE)")
+        self.assertEqual(self.storage(page),before)
+        page.locator("#demoExit").click()
+        page.locator("#demoStart").click()
+        self.assertEqual(page.evaluate("JSON.stringify(SCORE)"),sample)
+        self.assertEqual(self.storage(page),before)
+        self.assertEqual(self.remote,[])
+
     def test_manual_import_failure_and_restore_stay_local(self):
         page = self.page()
         page.locator("#demoStart").click()
@@ -431,7 +494,7 @@ class GrowthTests(unittest.TestCase):
         page.wait_for_function("navigator.serviceWorker.controller")
         page.evaluate("()=>caches.open('another-app-v1').then(c=>c.put('/unrelated',new Response('keep')))")
         cached = page.evaluate(
-            "()=>caches.open('lampgrid-v29').then(c=>c.keys()).then(rs=>rs.map(r=>r.url))"
+            "()=>caches.open('lampgrid-v30').then(c=>c.keys()).then(rs=>rs.map(r=>r.url))"
         )
         self.assertTrue(any(url.endswith("/demo.js") for url in cached))
         self.assertTrue(all(url.startswith(self.base) and "analytics" not in url for url in cached))
@@ -577,7 +640,7 @@ class GrowthTests(unittest.TestCase):
         base=page.evaluate("""()=>LampGridDemo.createCsv([
           {level:9,table:KOSHO9},{level:10,table:TABLES.t10},
           {level:10,table:KOSHO10},{level:11,table:TABLES.t11},{level:12,table:TABLES.t12}
-        ],keyOf)""")
+        ],keyOf,skillBandsFor)""")
         page.evaluate("(text)=>start(text)",base)
         before=page.evaluate("""()=>({
           sum:sum.innerHTML,dist:dist.innerHTML,verdict:verdict.innerHTML,
